@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Admin — Steep &amp; Standard</title>
+<link rel="stylesheet" href="/styles.css">
+<style>
+  .admin-wrap { max-width: 640px; margin: 60px auto; }
+  table { width: 100%; border-collapse: collapse; font-family: var(--mono); font-size: 0.85rem; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); }
+  th { color: var(--text-dim); font-weight: 500; }
+</style>
+</head>
+<body>
+<header class="site-header"><div class="wrap"><span class="brand">Steep <span class="brand-amp">&amp;</span> Standard — Admin</span></div></header>
+
+<main class="wrap admin-wrap">
+  <div id="login-panel" class="panel">
+    <h2>Admin sign-in</h2>
+    <div class="field">
+      <label for="admin-pass">Admin password</label>
+      <input type="password" id="admin-pass" autocomplete="current-password">
+    </div>
+    <button class="btn-primary" id="login-btn">Sign in</button>
+    <p id="login-error" class="hint" style="color:#a8672e"></p>
+  </div>
+
+  <div id="dash-panel" class="panel" hidden>
+    <h2>Recent unlocks</h2>
+    <p class="hint">Pulled from your connected Google Sheet via the backend — no card data is ever stored here.</p>
+    <table id="tx-table">
+      <thead><tr><th>Date</th><th>Beverage</th><th>Amount</th><th>Status</th></tr></thead>
+      <tbody></tbody>
+    </table>
+    <button class="btn-primary" id="logout-btn" style="margin-top:16px;background:var(--verdigris)">Sign out</button>
+  </div>
+</main>
+
+<script>
+const WORKER_BASE = "https://tea-water-advisor.YOUR-SUBDOMAIN.workers.dev";
+
+const loginPanel = document.getElementById("login-panel");
+const dashPanel = document.getElementById("dash-panel");
+const err = document.getElementById("login-error");
+
+async function loadTransactions(token) {
+  const res = await fetch(`${WORKER_BASE}/admin/transactions`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) { sessionStorage.removeItem("twa_admin_token"); showLogin(); return; }
+  const rows = await res.json();
+  const tbody = document.querySelector("#tx-table tbody");
+  tbody.innerHTML = "";
+  rows.forEach(r => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td>${r.date}</td><td>${r.beverage}</td><td>${r.amount}</td><td>${r.status}</td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+function showDash(token) {
+  loginPanel.hidden = true;
+  dashPanel.hidden = false;
+  loadTransactions(token);
+}
+function showLogin() {
+  loginPanel.hidden = false;
+  dashPanel.hidden = true;
+}
+
+document.getElementById("login-btn").addEventListener("click", async () => {
+  const pass = document.getElementById("admin-pass").value;
+  err.textContent = "";
+  try {
+    const res = await fetch(`${WORKER_BASE}/admin/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ password: pass }),
+    });
+    if (!res.ok) throw new Error("Incorrect password");
+    const { token } = await res.json();
+    sessionStorage.setItem("twa_admin_token", token);
+    showDash(token);
+  } catch (e) {
+    err.textContent = e.message;
+  }
+});
+
+document.getElementById("logout-btn").addEventListener("click", () => {
+  sessionStorage.removeItem("twa_admin_token");
+  showLogin();
+});
+
+const existing = sessionStorage.getItem("twa_admin_token");
+if (existing) showDash(existing); else showLogin();
+</script>
+</body>
+</html>

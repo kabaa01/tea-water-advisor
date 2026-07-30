@@ -1,0 +1,16 @@
+name = "tea-water-advisor"
+main = "src/index.js"
+compatibility_date = "2026-01-01"
+
+[vars]
+ALLOWED_ORIGIN = "https://kabaa01.github.io"
+SITE_URL = "https://kabaa01.github.io/tea-water-advisor"
+PRICE_USD_CENTS = "200"
+
+# Secrets (do NOT put these here — set them with `wrangler secret put NAME`):
+#   STRIPE_SECRET_KEY
+#   STRIPE_WEBHOOK_SECRET
+#   ADMIN_PASSWORD
+#   ADMIN_TOKEN_SECRET
+#   GOOGLE_SERVICE_ACCOUNT
+#   GOOGLE_SHEET_ID

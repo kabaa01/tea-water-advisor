@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Steep & Standard — Brewing Water Advisor</title>
+<meta name="description" content="Enter your water test results and get a science-backed brewing recommendation for tea or coffee, anywhere in the world.">
+<meta name="theme-color" content="#1F2E29">
+<link rel="manifest" href="/manifest.json">
+<link rel="icon" href="/icons/icon-192.png">
+<link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+
+<header class="site-header">
+  <div class="wrap">
+    <span class="brand">Steep <span class="brand-amp">&amp;</span> Standard</span>
+    <a class="admin-link" href="/admin.html">Admin</a>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <section class="hero">
+    <div class="hero-copy">
+      <p class="eyebrow">Water chemistry → cup quality</p>
+      <h1>Your water decides more of the taste than your tea does.</h1>
+      <p class="lede">
+        pH, mineral hardness and total dissolved solids change how much bitterness,
+        body and aroma actually make it into your cup. Enter a water test result —
+        your own kit, or a report from an accredited lab — and get a brew-specific
+        read on what to expect and how to fix it.
+      </p>
+    </div>
+    <div class="hero-signature" aria-hidden="true">
+      <div id="infusion-swatch" class="infusion-swatch"></div>
+      <span class="swatch-caption">Live infusion estimate</span>
+    </div>
+  </section>
+
+  <section class="panel">
+    <form id="advisor-form" class="advisor-form">
+      <div class="field">
+        <label for="beverage">What are you brewing?</label>
+        <select id="beverage" name="beverage" required>
+          <option value="green">Green tea</option>
+          <option value="black">Black tea</option>
+          <option value="oolong">Oolong tea</option>
+          <option value="white">White tea</option>
+          <option value="herbal">Herbal / rooibos</option>
+          <option value="coffee">Coffee</option>
+        </select>
+      </div>
+
+      <div class="field-grid">
+        <div class="field">
+          <label for="ph">pH</label>
+          <input type="number" id="ph" step="0.01" min="0" max="14" required placeholder="e.g. 7.1">
+        </div>
+        <div class="field">
+          <label for="tds">TDS (ppm / mg per L)</label>
+          <input type="number" id="tds" step="1" min="0" required placeholder="e.g. 120">
+        </div>
+        <div class="field">
+          <label for="hardness">Calcium hardness (mg/L as CaCO₃)</label>
+          <input type="number" id="hardness" step="1" min="0" required placeholder="e.g. 68">
+        </div>
+        <div class="field" id="alkalinity-row" style="display:none">
+          <label for="alkalinity">Total alkalinity (mg/L as CaCO₃)</label>
+          <input type="number" id="alkalinity" step="1" min="0" placeholder="e.g. 40">
+        </div>
+        <div class="field">
+          <label for="fluoride">Fluoride (mg/L) — optional, safety check</label>
+          <input type="number" id="fluoride" step="0.01" min="0" placeholder="e.g. 0.6">
+        </div>
+        <div class="field field-checkbox">
+          <label><input type="checkbox" id="chlorine"> This is chlorinated tap water</label>
+        </div>
+      </div>
+
+      <button type="submit" class="btn-primary">Get my brew reading</button>
+      <p class="hint">Don't have exact numbers? Use the target values shown after you submit as a rough guide, or get a proper reading from a local accredited lab.</p>
+    </form>
+  </section>
+
+  <section id="result" class="panel result" hidden>
+
+    <div id="result-locked">
+      <p class="teaser-label">Overall match to ideal brewing range</p>
+      <p class="teaser-pct"><span id="teaser-pct">—</span><span class="pct-sign">%</span></p>
+      <p class="teaser-note" id="teaser-note"></p>
+      <p class="teaser-fade">The full report breaks down pH, hardness and TDS individually, with specific fixes for your water.</p>
+      <button id="pay-btn" class="btn-primary">Unlock full brew report — $2.00</button>
+      <p class="hint">Secure payment via Stripe Checkout. One-time unlock for this reading.</p>
+    </div>
+
+    <div id="result-unlocked" hidden>
+      <p class="teaser-label">Overall match to ideal brewing range</p>
+      <p class="teaser-pct"><span id="overall-pct">—</span><span class="pct-sign">%</span></p>
+      <h2>What your water is doing to the cup</h2>
+      <ul id="notes-list" class="notes-list"></ul>
+    </div>
+
+  </section>
+
+  <section class="panel sources">
+    <h2>Where these ranges come from</h2>
+    <p>
+      Tea targets follow published brewing-water research on pH, TDS and catechin
+      extraction. Coffee targets follow the Specialty Coffee Association's Golden
+      Cup water standard. Fluoride guidance follows WHO/KEBS drinking-water limits.
+      Full citations are in the project README. This tool estimates likely taste
+      impact — it is not a certified water-safety test.
+    </p>
+  </section>
+
+</main>
+
+<footer class="site-footer">
+  <div class="wrap">
+    <span>Steep &amp; Standard</span>
+    <span class="dim">Not a substitute for an accredited water-safety test.</span>
+  </div>
+</footer>
+
+<script>window.TWA_CONFIG = { workerBase: "https://tea-water-advisor.YOUR-SUBDOMAIN.workers.dev" };</script>
+<script type="module" src="/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,13 @@
+{
+  "name": "Steep & Standard — Brewing Water Advisor",
+  "short_name": "Steep & Standard",
+  "description": "Science-backed tea and coffee brewing advice based on your water test results.",
+  "start_url": "/index.html",
+  "display": "standalone",
+  "background_color": "#EDEEE7",
+  "theme_color": "#16211D",
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

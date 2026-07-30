@@ -1,0 +1,13 @@
+{
+  "name": "tea-water-advisor-worker",
+  "private": true,
+  "version": "1.0.0",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "secrets": "echo 'Run: wrangler secret put STRIPE_SECRET_KEY  (repeat for each secret listed in src/index.js)'"
+  },
+  "devDependencies": {
+    "wrangler": "^3.90.0"
+  }
+}
