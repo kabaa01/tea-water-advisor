@@ -3,100 +3,107 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Steep & Standard — Brewing Water Advisor</title>
-<meta name="description" content="Enter your water test results and get a science-backed brewing recommendation for tea or coffee, anywhere in the world.">
+<title>Steep & Standard — Perfect Brew Checker</title>
+<meta name="description" content="Pick your drink, check your water, see if it's the golden ratio for the best taste.">
 <meta name="theme-color" content="#1F2E29">
-<link rel="manifest" href="/manifest.json">
-<link rel="icon" href="/icons/icon-192.png">
-<link rel="stylesheet" href="/styles.css">
+<link rel="manifest" href="./manifest.json">
+<link rel="icon" href="./icons/icon-192.png">
+<link rel="stylesheet" href="./styles.css">
 </head>
 <body>
 
 <header class="site-header">
   <div class="wrap">
     <span class="brand">Steep <span class="brand-amp">&amp;</span> Standard</span>
-    <a class="admin-link" href="/admin.html">Admin</a>
+    <a class="admin-link" href="./admin.html">Admin</a>
   </div>
 </header>
 
 <main class="wrap">
 
-  <section class="hero">
-    <div class="hero-copy">
-      <p class="eyebrow">Water chemistry → cup quality</p>
-      <h1>Your water decides more of the taste than your tea does.</h1>
-      <p class="lede">
-        pH, mineral hardness and total dissolved solids change how much bitterness,
-        body and aroma actually make it into your cup. Enter a water test result —
-        your own kit, or a report from an accredited lab — and get a brew-specific
-        read on what to expect and how to fix it.
-      </p>
-    </div>
-    <div class="hero-signature" aria-hidden="true">
-      <div id="infusion-swatch" class="infusion-swatch"></div>
-      <span class="swatch-caption">Live infusion estimate</span>
+  <section class="step-1">
+    <h1>1. Pick your drink</h1>
+    <div class="drink-grid" id="drink-grid" role="group" aria-label="Choose a beverage">
+      <button class="drink-btn" data-drink="green" aria-pressed="false"><span class="drink-emoji">🍵</span><span>Green tea</span></button>
+      <button class="drink-btn" data-drink="black" aria-pressed="false"><span class="drink-emoji">🫖</span><span>Black tea</span></button>
+      <button class="drink-btn" data-drink="oolong" aria-pressed="false"><span class="drink-emoji">🌿</span><span>Oolong</span></button>
+      <button class="drink-btn" data-drink="white" aria-pressed="false"><span class="drink-emoji">🤍</span><span>White tea</span></button>
+      <button class="drink-btn" data-drink="herbal" aria-pressed="false"><span class="drink-emoji">🌺</span><span>Herbal</span></button>
+      <button class="drink-btn" data-drink="coffee" aria-pressed="false"><span class="drink-emoji">☕</span><span>Coffee</span></button>
     </div>
   </section>
 
-  <section class="panel">
-    <form id="advisor-form" class="advisor-form">
+  <section class="panel golden-card" id="golden-card" hidden>
+    <p class="golden-label">✨ The golden ratio for <span id="golden-drink-name">this drink</span></p>
+    <div class="golden-numbers">
+      <div><span class="g-num" id="g-ph">7.0</span><span class="g-label">pH</span></div>
+      <div><span class="g-num" id="g-tds">90</span><span class="g-label">TDS</span></div>
+      <div><span class="g-num" id="g-hard">50</span><span class="g-label">Hardness</span></div>
+    </div>
+  </section>
+
+  <section class="panel" id="sliders-panel" hidden>
+    <h1>2. Move the dials to match your water</h1>
+    <p class="sub">Don't know your numbers? Leave the dials where they are — that's already the golden ratio. Get real numbers from any water-test strip or lab report.</p>
+
+    <div class="slider-block">
+      <div class="slider-head">
+        <span class="slider-title">💧 pH (sour ↔ soapy)</span>
+        <span class="slider-value" id="ph-readout">7.0</span>
+      </div>
+      <input type="range" id="ph" min="6.0" max="8.5" step="0.1" value="7.0">
+      <div class="slider-face" id="ph-face">😄 Just right</div>
+    </div>
+
+    <div class="slider-block">
+      <div class="slider-head">
+        <span class="slider-title">🪨 TDS (light ↔ heavy)</span>
+        <span class="slider-value" id="tds-readout">90</span>
+      </div>
+      <input type="range" id="tds" min="0" max="300" step="5" value="90">
+      <div class="slider-face" id="tds-face">😄 Just right</div>
+    </div>
+
+    <div class="slider-block">
+      <div class="slider-head">
+        <span class="slider-title">🧊 Hardness (soft ↔ hard)</span>
+        <span class="slider-value" id="hardness-readout">50</span>
+      </div>
+      <input type="range" id="hardness" min="0" max="150" step="1" value="50">
+      <div class="slider-face" id="hardness-face">😄 Just right</div>
+    </div>
+
+    <details class="grownup">
+      <summary>Grown-up settings (optional)</summary>
+      <div class="field" id="alkalinity-row" style="display:none">
+        <label for="alkalinity">Total alkalinity (mg/L as CaCO₃) — coffee only</label>
+        <input type="number" id="alkalinity" step="1" min="0" placeholder="e.g. 40">
+      </div>
       <div class="field">
-        <label for="beverage">What are you brewing?</label>
-        <select id="beverage" name="beverage" required>
-          <option value="green">Green tea</option>
-          <option value="black">Black tea</option>
-          <option value="oolong">Oolong tea</option>
-          <option value="white">White tea</option>
-          <option value="herbal">Herbal / rooibos</option>
-          <option value="coffee">Coffee</option>
-        </select>
+        <label for="fluoride">Fluoride (mg/L) — safety check, not taste</label>
+        <input type="number" id="fluoride" step="0.01" min="0" placeholder="e.g. 0.6">
       </div>
-
-      <div class="field-grid">
-        <div class="field">
-          <label for="ph">pH</label>
-          <input type="number" id="ph" step="0.01" min="0" max="14" required placeholder="e.g. 7.1">
-        </div>
-        <div class="field">
-          <label for="tds">TDS (ppm / mg per L)</label>
-          <input type="number" id="tds" step="1" min="0" required placeholder="e.g. 120">
-        </div>
-        <div class="field">
-          <label for="hardness">Calcium hardness (mg/L as CaCO₃)</label>
-          <input type="number" id="hardness" step="1" min="0" required placeholder="e.g. 68">
-        </div>
-        <div class="field" id="alkalinity-row" style="display:none">
-          <label for="alkalinity">Total alkalinity (mg/L as CaCO₃)</label>
-          <input type="number" id="alkalinity" step="1" min="0" placeholder="e.g. 40">
-        </div>
-        <div class="field">
-          <label for="fluoride">Fluoride (mg/L) — optional, safety check</label>
-          <input type="number" id="fluoride" step="0.01" min="0" placeholder="e.g. 0.6">
-        </div>
-        <div class="field field-checkbox">
-          <label><input type="checkbox" id="chlorine"> This is chlorinated tap water</label>
-        </div>
+      <div class="field field-checkbox">
+        <label><input type="checkbox" id="chlorine"> This is chlorinated tap water</label>
       </div>
+    </details>
 
-      <button type="submit" class="btn-primary">Get my brew reading</button>
-      <p class="hint">Don't have exact numbers? Use the target values shown after you submit as a rough guide, or get a proper reading from a local accredited lab.</p>
-    </form>
+    <button id="check-btn" class="btn-primary btn-big">See my result 🔍</button>
   </section>
 
   <section id="result" class="panel result" hidden>
 
     <div id="result-locked">
-      <p class="teaser-label">Overall match to ideal brewing range</p>
-      <p class="teaser-pct"><span id="teaser-pct">—</span><span class="pct-sign">%</span></p>
+      <div class="big-face" id="teaser-face">🙂</div>
+      <p class="teaser-pct"><span id="teaser-pct">—</span><span class="pct-sign">%</span> golden ratio match</p>
       <p class="teaser-note" id="teaser-note"></p>
-      <p class="teaser-fade">The full report breaks down pH, hardness and TDS individually, with specific fixes for your water.</p>
-      <button id="pay-btn" class="btn-primary">Unlock full brew report — $2.00</button>
+      <button id="pay-btn" class="btn-primary btn-big">Unlock the full fix — $2.00</button>
       <p class="hint">Secure payment via Stripe Checkout. One-time unlock for this reading.</p>
     </div>
 
     <div id="result-unlocked" hidden>
-      <p class="teaser-label">Overall match to ideal brewing range</p>
-      <p class="teaser-pct"><span id="overall-pct">—</span><span class="pct-sign">%</span></p>
+      <div class="big-face" id="full-face">🙂</div>
+      <p class="teaser-pct"><span id="overall-pct">—</span><span class="pct-sign">%</span> golden ratio match</p>
       <h2>What your water is doing to the cup</h2>
       <ul id="notes-list" class="notes-list"></ul>
     </div>
@@ -123,7 +130,7 @@
   </div>
 </footer>
 
-<script>window.TWA_CONFIG = { workerBase: "https://tea-water-advisor.kabaa01tea2026.workers.dev" };</script>
-<script type="module" src="/app.js"></script>
+<script>window.TWA_CONFIG = { workerBase: "https://tea-water-advisor.YOUR-SUBDOMAIN.workers.dev" };</script>
+<script src="./app.js"></script>
 </body>
 </html>
