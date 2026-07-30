@@ -15,7 +15,6 @@
 <header class="site-header">
   <div class="wrap">
     <span class="brand">Steep <span class="brand-amp">&amp;</span> Standard</span>
-    <a class="admin-link" href="./admin.html">Admin</a>
   </div>
 </header>
 
@@ -73,8 +72,8 @@
       <div class="slider-face" id="hardness-face">😄 Just right</div>
     </div>
 
-    <details class="grownup">
-      <summary>Grown-up settings (optional)</summary>
+    <details class="advanced-settings">
+      <summary>Additional water parameters (optional)</summary>
       <div class="field" id="alkalinity-row" style="display:none">
         <label for="alkalinity">Total alkalinity (mg/L as CaCO₃) — coffee only</label>
         <input type="number" id="alkalinity" step="1" min="0" placeholder="e.g. 40">
@@ -97,8 +96,9 @@
       <div class="big-face" id="teaser-face">🙂</div>
       <p class="teaser-pct"><span id="teaser-pct">—</span><span class="pct-sign">%</span> golden ratio match</p>
       <p class="teaser-note" id="teaser-note"></p>
-      <button id="pay-btn" class="btn-primary btn-big">Unlock the full fix — $2.00</button>
-      <p class="hint">Secure payment via Stripe Checkout. One-time unlock for this reading.</p>
+      <p class="teaser-fade" id="price-label">Unlock the full report for a one-time fee.</p>
+      <div id="paypal-button-container"></div>
+      <p class="hint">Payment processed securely by PayPal.</p>
     </div>
 
     <div id="result-unlocked" hidden>
@@ -108,6 +108,26 @@
       <ul id="notes-list" class="notes-list"></ul>
     </div>
 
+  </section>
+
+  <section class="panel glossary">
+    <h2>Terms used on this page</h2>
+    <dl>
+      <dt>pH</dt>
+      <dd>Potential of Hydrogen — measures how acidic or alkaline water is, on a scale of 0 to 14.</dd>
+      <dt>TDS</dt>
+      <dd>Total Dissolved Solids — the amount of minerals dissolved in water.</dd>
+      <dt>mg/L</dt>
+      <dd>Milligrams per Litre — a unit used to measure the concentration of a substance in water.</dd>
+      <dt>CaCO₃</dt>
+      <dd>Calcium Carbonate — the reference compound used to express water hardness and alkalinity.</dd>
+      <dt>SCA</dt>
+      <dd>Specialty Coffee Association — the industry body that publishes coffee brewing-water standards.</dd>
+      <dt>WHO</dt>
+      <dd>World Health Organization.</dd>
+      <dt>KEBS</dt>
+      <dd>Kenya Bureau of Standards.</dd>
+    </dl>
   </section>
 
   <section class="panel sources">
@@ -130,7 +150,12 @@
   </div>
 </footer>
 
-<script>window.TWA_CONFIG = { workerBase: "https://tea-water-advisor.YOUR-SUBDOMAIN.workers.dev" };</script>
+<noscript>
+  <p style="text-align:center;padding:24px;font-family:sans-serif">
+    This tool needs JavaScript turned on to work — please enable it in your browser.
+  </p>
+</noscript>
+<script src="./config.js"></script>
 <script src="./app.js"></script>
 </body>
 </html>

@@ -148,43 +148,82 @@ document.getElementById("check-btn").addEventListener("click", () => {
   document.getElementById("teaser-pct").textContent = lastAdvice.overall ?? "—";
   document.getElementById("teaser-note").textContent = lastAdvice.notes[0] || "";
   result.scrollIntoView({ behavior: "smooth", block: "start" });
+  setUpPayment();
 });
 
-document.getElementById("pay-btn").addEventListener("click", async () => {
-  const btn = document.getElementById("pay-btn");
-  btn.disabled = true;
-  btn.textContent = "Redirecting to secure checkout…";
+// ---- PayPal payment (dynamic: price and buttons load from the Worker) ----
+let paymentReady = false;
+
+async function fetchPrice() {
   try {
-    const res = await fetch(`${WORKER_BASE}/create-checkout-session`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ beverage: lastAdvice.profile.label }),
-    });
+    const res = await fetch(`${WORKER_BASE}/price`);
     const data = await res.json();
-    if (data.url) {
-      sessionStorage.setItem("twa_pending_input", JSON.stringify(lastAdvice));
-      window.location.href = data.url;
-    } else {
-      throw new Error(data.error || "Could not start checkout");
-    }
-  } catch (err) {
-    btn.textContent = "Unlock the full fix — try again";
-    btn.disabled = false;
-    alert("Payment could not start: " + err.message);
+    const dollars = ((data.cents || 500) / 100).toFixed(2);
+    document.getElementById("price-label").textContent = `Unlock the full report — $${dollars}`;
+  } catch {
+    document.getElementById("price-label").textContent = "Unlock the full report for a one-time fee.";
   }
-});
+}
 
-async function checkReturnFromCheckout() {
-  const params = new URLSearchParams(window.location.search);
-  const sessionId = params.get("session_id");
-  if (!sessionId) return;
-  const res = await fetch(`${WORKER_BASE}/verify?session_id=${encodeURIComponent(sessionId)}`);
-  const data = await res.json();
-  if (data.paid) {
-    const stored = sessionStorage.getItem("twa_pending_input");
-    if (stored) renderFullReport(JSON.parse(stored));
+function loadPayPalSdk(clientId) {
+  return new Promise((resolve, reject) => {
+    if (window.paypal) { resolve(window.paypal); return; }
+    const s = document.createElement("script");
+    s.src = `https://www.paypal.com/sdk/js?client-id=${encodeURIComponent(clientId)}&currency=USD`;
+    s.onload = () => resolve(window.paypal);
+    s.onerror = () => reject(new Error("Could not load PayPal"));
+    document.head.appendChild(s);
+  });
+}
+
+async function setUpPayment() {
+  fetchPrice();
+  if (paymentReady) return; // buttons only need to be rendered once
+
+  const clientId = window.TWA_CONFIG?.paypalClientId;
+  const notConfigured = !WORKER_BASE || WORKER_BASE.includes("YOUR-SUBDOMAIN") ||
+    !clientId || clientId === "YOUR_PAYPAL_CLIENT_ID";
+  if (notConfigured) {
+    document.getElementById("paypal-button-container").textContent =
+      "Payments aren't set up on this site yet — the site owner needs to add PayPal credentials.";
+    return;
   }
-  window.history.replaceState({}, "", window.location.pathname);
+
+  try {
+    const paypal = await loadPayPalSdk(clientId);
+    paypal.Buttons({
+      createOrder: async () => {
+        const res = await fetch(`${WORKER_BASE}/create-order`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ beverage: lastAdvice.profile.label }),
+        });
+        const data = await res.json();
+        if (!data.id) throw new Error(data.error || "Could not start payment");
+        return data.id;
+      },
+      onApprove: async (data) => {
+        const res = await fetch(`${WORKER_BASE}/capture-order`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ orderID: data.orderID }),
+        });
+        const result = await res.json();
+        if (result.status === "COMPLETED") {
+          renderFullReport(lastAdvice);
+        } else {
+          alert("Payment could not be completed. Please try again.");
+        }
+      },
+      onError: (err) => {
+        alert("PayPal error: " + (err?.message || "please try again."));
+      },
+    }).render("#paypal-button-container");
+    paymentReady = true;
+  } catch (err) {
+    document.getElementById("paypal-button-container").textContent =
+      "PayPal could not load. Please refresh and try again.";
+  }
 }
 
 function renderFullReport(advice) {
@@ -202,8 +241,6 @@ function renderFullReport(advice) {
     list.appendChild(li);
   });
 }
-
-checkReturnFromCheckout();
 
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js"));

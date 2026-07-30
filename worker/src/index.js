@@ -1,18 +1,21 @@
 /**
  * Tea & Coffee Brewing Water Advisor — backend worker.
+ * Payment processor: PayPal (Orders API v2).
  *
  * Required secrets (set with `wrangler secret put <NAME>`):
- *   STRIPE_SECRET_KEY        - Stripe secret key (sk_live_... or sk_test_...)
- *   STRIPE_WEBHOOK_SECRET    - Stripe webhook signing secret (whsec_...)
+ *   PAYPAL_CLIENT_SECRET     - from your PayPal REST API app (developer.paypal.com)
+ *   PAYPAL_WEBHOOK_ID        - only needed if you configure a PayPal webhook
  *   ADMIN_PASSWORD           - password for the /admin.html dashboard
  *   ADMIN_TOKEN_SECRET       - random 32+ char string, used to sign admin session tokens
- *   GOOGLE_SERVICE_ACCOUNT   - full JSON key of a Google service account, as a single string
- *   GOOGLE_SHEET_ID          - the spreadsheet ID that logs transactions
+ *   GOOGLE_SERVICE_ACCOUNT   - optional, full JSON key of a Google service account
+ *   GOOGLE_SHEET_ID          - optional, the spreadsheet ID that logs transactions
  *
  * Required vars (wrangler.toml [vars]):
+ *   PAYPAL_CLIENT_ID         - from the same REST API app (not secret — safe to expose)
+ *   PAYPAL_MODE              - "live" or "sandbox"
  *   ALLOWED_ORIGIN           - your GitHub Pages origin, e.g. https://kabaa01.github.io
- *   PRICE_USD_CENTS          - price for one unlock, e.g. 200 for $2.00
- *   SITE_URL                 - same as ALLOWED_ORIGIN, used for Stripe redirect URLs
+ *   SITE_URL                 - same site, used for reference only
+ *   PRICE_USD_CENTS          - price for one unlock, e.g. 500 for $5.00
  */
 
 function corsHeaders(env) {
@@ -31,65 +34,85 @@ function json(data, status, env) {
 }
 
 // ---------------------------------------------------------------------------
-// Stripe helpers (raw REST — no SDK dependency)
+// PayPal helpers (REST API v2, no SDK dependency — just fetch)
 // ---------------------------------------------------------------------------
-async function stripeRequest(env, path, params) {
-  const body = new URLSearchParams(params);
-  const res = await fetch(`https://api.stripe.com/v1/${path}`, {
+function paypalBase(env) {
+  return env.PAYPAL_MODE === "sandbox"
+    ? "https://api-m.sandbox.paypal.com"
+    : "https://api-m.paypal.com";
+}
+
+async function getPayPalAccessToken(env) {
+  const auth = btoa(`${env.PAYPAL_CLIENT_ID}:${env.PAYPAL_CLIENT_SECRET}`);
+  const res = await fetch(`${paypalBase(env)}/v1/oauth2/token`, {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${env.STRIPE_SECRET_KEY}`,
+      Authorization: `Basic ${auth}`,
       "Content-Type": "application/x-www-form-urlencoded",
     },
-    body,
+    body: "grant_type=client_credentials",
   });
   const data = await res.json();
-  if (!res.ok) throw new Error(data.error?.message || "Stripe request failed");
-  return data;
+  if (!res.ok) throw new Error(data.error_description || "PayPal authentication failed");
+  return data.access_token;
 }
 
-async function stripeGet(env, path) {
-  const res = await fetch(`https://api.stripe.com/v1/${path}`, {
-    headers: { Authorization: `Bearer ${env.STRIPE_SECRET_KEY}` },
+async function createPayPalOrder(env, beverage) {
+  const token = await getPayPalAccessToken(env);
+  const amount = ((Number(env.PRICE_USD_CENTS) || 500) / 100).toFixed(2);
+  const res = await fetch(`${paypalBase(env)}/v2/checkout/orders`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      intent: "CAPTURE",
+      purchase_units: [
+        {
+          description: `Brew water report — ${beverage}`.slice(0, 127),
+          amount: { currency_code: "USD", value: amount },
+        },
+      ],
+    }),
   });
   const data = await res.json();
-  if (!res.ok) throw new Error(data.error?.message || "Stripe request failed");
+  if (!res.ok) throw new Error(data.message || "Could not create PayPal order");
   return data;
 }
 
-async function createCheckoutSession(env, beverage) {
-  const data = await stripeRequest(env, "checkout/sessions", {
-    mode: "payment",
-    "line_items[0][price_data][currency]": "usd",
-    "line_items[0][price_data][product_data][name]": `Brew water report — ${beverage}`,
-    "line_items[0][price_data][unit_amount]": String(env.PRICE_USD_CENTS || 200),
-    "line_items[0][quantity]": "1",
-    success_url: `${env.SITE_URL}/index.html?session_id={CHECKOUT_SESSION_ID}`,
-    cancel_url: `${env.SITE_URL}/index.html`,
+async function capturePayPalOrder(env, orderId) {
+  const token = await getPayPalAccessToken(env);
+  const res = await fetch(`${paypalBase(env)}/v2/checkout/orders/${orderId}/capture`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
   });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.message || "Could not capture PayPal order");
   return data;
 }
 
-// Verifies the Stripe-Signature header using HMAC-SHA256 (Web Crypto).
-async function verifyStripeSignature(payload, sigHeader, secret) {
-  const parts = Object.fromEntries(
-    sigHeader.split(",").map((kv) => kv.split("="))
-  );
-  const signedPayload = `${parts.t}.${payload}`;
-  const key = await crypto.subtle.importKey(
-    "raw",
-    new TextEncoder().encode(secret),
-    { name: "HMAC", hash: "SHA-256" },
-    false,
-    ["sign"]
-  );
-  const sigBuf = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(signedPayload));
-  const expected = [...new Uint8Array(sigBuf)].map((b) => b.toString(16).padStart(2, "0")).join("");
-  return expected === parts.v1;
+// Verifies an incoming PayPal webhook using PayPal's own verification endpoint.
+// Only used if you've configured PAYPAL_WEBHOOK_ID; safe to skip otherwise.
+async function verifyPayPalWebhook(env, headers, rawBody) {
+  const token = await getPayPalAccessToken(env);
+  const payload = {
+    transmission_id: headers.get("paypal-transmission-id"),
+    transmission_time: headers.get("paypal-transmission-time"),
+    cert_url: headers.get("paypal-cert-url"),
+    auth_algo: headers.get("paypal-auth-algo"),
+    transmission_sig: headers.get("paypal-transmission-sig"),
+    webhook_id: env.PAYPAL_WEBHOOK_ID,
+    webhook_event: JSON.parse(rawBody),
+  };
+  const res = await fetch(`${paypalBase(env)}/v1/notifications/verify-webhook-signature`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  const data = await res.json();
+  return data.verification_status === "SUCCESS";
 }
 
 // ---------------------------------------------------------------------------
-// Google Sheets (service-account JWT bearer flow, REST only)
+// Google Sheets (optional transaction logging — service-account JWT bearer flow)
 // ---------------------------------------------------------------------------
 function pemToArrayBuffer(pem) {
   const b64 = pem.replace(/-----[^-]+-----/g, "").replace(/\s+/g, "");
@@ -162,7 +185,7 @@ async function readTransactionRows(env) {
     { headers: { Authorization: `Bearer ${token}` } }
   );
   const data = await res.json();
-  const rows = (data.values || []).slice(1); // skip header row
+  const rows = (data.values || []).slice(1);
   return rows.reverse().slice(0, 100).map((r) => ({
     date: r[0] || "", beverage: r[1] || "", amount: r[2] || "", status: r[3] || "",
   }));
@@ -208,36 +231,39 @@ export default {
     }
 
     try {
-      if (url.pathname === "/create-checkout-session" && request.method === "POST") {
-        const { beverage } = await request.json();
-        const session = await createCheckoutSession(env, beverage || "brew");
-        return json({ url: session.url }, 200, env);
+      if (url.pathname === "/price" && request.method === "GET") {
+        return json({ cents: Number(env.PRICE_USD_CENTS) || 500 }, 200, env);
       }
 
-      if (url.pathname === "/verify" && request.method === "GET") {
-        const sessionId = url.searchParams.get("session_id");
-        const session = await stripeGet(env, `checkout/sessions/${sessionId}`);
-        return json({ paid: session.payment_status === "paid" }, 200, env);
+      if (url.pathname === "/create-order" && request.method === "POST") {
+        const { beverage } = await request.json();
+        const order = await createPayPalOrder(env, beverage || "brew");
+        return json({ id: order.id }, 200, env);
+      }
+
+      if (url.pathname === "/capture-order" && request.method === "POST") {
+        const { orderID } = await request.json();
+        const result = await capturePayPalOrder(env, orderID);
+        return json({ status: result.status, id: result.id }, 200, env);
       }
 
       if (url.pathname === "/webhook" && request.method === "POST") {
-        const payload = await request.text();
-        const sig = request.headers.get("Stripe-Signature") || "";
-        const ok = await verifyStripeSignature(payload, sig, env.STRIPE_WEBHOOK_SECRET);
-        if (!ok) return json({ error: "invalid signature" }, 400, env);
-        const event = JSON.parse(payload);
-        if (event.type === "checkout.session.completed" && env.GOOGLE_SERVICE_ACCOUNT && env.GOOGLE_SHEET_ID) {
-          const s = event.data.object;
+        const rawBody = await request.text();
+        if (env.PAYPAL_WEBHOOK_ID) {
+          const ok = await verifyPayPalWebhook(env, request.headers, rawBody);
+          if (!ok) return json({ error: "invalid signature" }, 400, env);
+        }
+        const event = JSON.parse(rawBody);
+        if (event.event_type === "PAYMENT.CAPTURE.COMPLETED" && env.GOOGLE_SERVICE_ACCOUNT && env.GOOGLE_SHEET_ID) {
           try {
+            const resource = event.resource || {};
             await appendTransactionRow(env, [
               new Date().toISOString(),
-              s.metadata?.beverage || "unknown",
-              ((s.amount_total || 0) / 100).toFixed(2) + " " + (s.currency || "usd").toUpperCase(),
+              resource.custom_id || "unknown",
+              (resource.amount?.value || "") + " " + (resource.amount?.currency_code || "USD"),
               "paid",
             ]);
           } catch (sheetErr) {
-            // Never fail the webhook (and trigger Stripe retries) just because
-            // logging failed — the payment itself is already confirmed by Stripe.
             console.error("Sheets logging failed:", sheetErr.message);
           }
         }
@@ -256,7 +282,7 @@ export default {
         const token = auth.replace("Bearer ", "");
         if (!(await verifyAdminToken(env, token))) return json({ error: "unauthorized" }, 401, env);
         if (!env.GOOGLE_SERVICE_ACCOUNT || !env.GOOGLE_SHEET_ID) {
-          return json({ error: "Google Sheets not configured — view payments in your Stripe Dashboard instead." }, 200, env);
+          return json({ error: "Google Sheets not configured — view payments in your PayPal Dashboard instead." }, 200, env);
         }
         const rows = await readTransactionRows(env);
         return json(rows, 200, env);

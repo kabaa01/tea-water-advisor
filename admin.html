@@ -37,8 +37,9 @@
   </div>
 </main>
 
+<script src="./config.js"></script>
 <script>
-const WORKER_BASE = "https://tea-water-advisor.YOUR-SUBDOMAIN.workers.dev";
+const WORKER_BASE = window.TWA_CONFIG.workerBase;
 
 const loginPanel = document.getElementById("login-panel");
 const dashPanel = document.getElementById("dash-panel");
