@@ -1,8 +1,6 @@
-/* Single place to set your deployment details. Everything else (index.html,
-   admin.html) reads from here — you only ever edit this one file. */
+/* The only file you need to edit. Set your PayPal.me link (with the
+   amount built in) and the matching price label shown on the page. */
 window.TWA_CONFIG = {
-  workerBase: "https://tea-water-advisor.YOUR-SUBDOMAIN.workers.dev",
-  // Public PayPal Client ID from your REST API app at developer.paypal.com.
-  // This value is not sensitive — it is designed to be visible in page source.
-  paypalClientId: "YOUR_PAYPAL_CLIENT_ID",
+  payPalLink: "https://paypal.me/kabaa01/5USD",
+  priceLabel: "$5.00",
 };

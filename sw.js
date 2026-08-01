@@ -1,4 +1,4 @@
-const CACHE = "twa-shell-v3";
+const CACHE = "twa-shell-v4";
 const SHELL = ["./", "./index.html", "./styles.css", "./config.js", "./app.js", "./manifest.json"];
 
 self.addEventListener("install", (e) => {

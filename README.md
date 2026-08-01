@@ -3,9 +3,9 @@
 A Progressive Web App (PWA — a website that can be installed like an app
 and works offline) that takes a water test result (pH, TDS, hardness,
 fluoride) and gives a brew-specific reading of how that water will affect
-taste, with a paid unlock for the full breakdown via PayPal. Free teaser
-(overall percentage match + one note) is open; the full report requires a
-one-time PayPal payment.
+taste, with a paid unlock for the full breakdown via a plain PayPal
+payment link. No servers, no accounts beyond GitHub and PayPal, nothing
+to configure with a command line.
 
 ## What this is / is not
 
@@ -18,8 +18,6 @@ one-time PayPal payment.
 
 ## Glossary
 
-Acronyms and abbreviations used throughout this document and the app:
-
 | Term | Meaning |
 |---|---|
 | pH | Potential of Hydrogen — acidity/alkalinity, scale 0–14 |
@@ -30,172 +28,62 @@ Acronyms and abbreviations used throughout this document and the app:
 | WHO | World Health Organization |
 | KEBS | Kenya Bureau of Standards |
 | PWA | Progressive Web App |
-| API | Application Programming Interface — how software services talk to each other |
-| REST | Representational State Transfer — a common style of web API |
-| SDK | Software Development Kit — a vendor's ready-made code library (here, PayPal's) |
-| JSON | JavaScript Object Notation — a text format for structured data |
-| YAML | "YAML Ain't Markup Language" — a text format used for configuration files |
-| DOM | Document Object Model — the browser's in-memory representation of a web page |
-| CORS | Cross-Origin Resource Sharing — browser security rules for cross-site requests |
-| JWT | JSON Web Token — a signed token format (used here for Google's service-account auth) |
-| HMAC | Hash-based Message Authentication Code — a way to sign and verify data |
 | CI | Continuous Integration — automatically running tests on every code change |
-| PCI-DSS | Payment Card Industry Data Security Standard — card-data handling rules (PayPal/Stripe absorb this for you) |
 
-## Payment: PayPal
+## How payment works (the simple version)
 
-Payments are processed through PayPal's Orders API and settle into whichever
-PayPal account owns the API credentials you configure. Your account login
-email (`kabaa01@yahoo.com`) is not itself a code setting — the code
-authenticates with a **Client ID** and **Client Secret** generated for that
-account, which is what actually determines where funds land.
+There is no backend. The "Pay with PayPal" button is a plain link to your
+**PayPal.me** page with the price built into the URL. When someone clicks
+it, PayPal opens in a new tab and they pay you directly — funds land in
+your PayPal account (`kabaa01@yahoo.com`) immediately, the same as if
+you'd texted them the link yourself.
 
-### One-time setup
+**The honest trade-off:** because there's no server, this page can't
+automatically confirm a payment happened. After paying, the buyer clicks
+"I've paid — show my report" themselves to reveal it. PayPal always sends
+a real receipt by email to both you and the buyer automatically — that
+email is the actual proof of payment, and it requires no setup on your
+part. For a low-cost digital report like this, that's a completely normal
+approach; it trades a small amount of trust for zero technical complexity.
+If you ever want real automatic verification, that requires the backend
+approach we removed — let me know if you want it back for a specific
+reason and I can re-add just that piece.
 
-1. Go to **developer.paypal.com** and log in with `kabaa01@yahoo.com`
-   (create/upgrade to a PayPal **Business** account if you haven't — required
-   to receive payments).
-2. **Apps & Credentials → Create App** (Default/Live app is fine).
-3. Copy the **Client ID** and **Secret** it gives you.
-4. Put the Client ID in two places (it's public, safe to expose):
-   - `config.js` → `paypalClientId`
-   - `worker/wrangler.toml` → `PAYPAL_CLIENT_ID` under `[vars]`
-5. Put the Secret in **one** place, as a real secret (never in a file you
-   commit): `npx wrangler secret put PAYPAL_CLIENT_SECRET` (see deploy steps
-   below).
-6. (Optional but recommended) **Apps & Credentials → your app → Add
-   Webhook**, URL = `https://<your-worker>.workers.dev/webhook`, event =
-   `Payment capture completed`. Copy the Webhook ID into
-   `wrangler secret put PAYPAL_WEBHOOK_ID`. Without this, payments still work
-   — you just lose server-side signature verification on the webhook.
-7. Test with a **sandbox** app first (`PAYPAL_MODE = "sandbox"` in
-   `wrangler.toml`, and use sandbox Client ID/Secret) before switching to
-   `"live"`.
+### One-time setup (5 minutes, no technical steps)
 
-## What changed in this version
+1. Log into PayPal as `kabaa01@yahoo.com`.
+2. Go to **paypal.com/paypalme** and claim a link name (e.g. `paypal.me/kabaa01`).
+3. Open `config.js` in this project and set:
+   ```js
+   payPalLink: "https://paypal.me/kabaa01/5USD",
+   priceLabel: "$5.00",
+   ```
+   (Replace `kabaa01` with whatever name you actually claimed, and `5USD`
+   with your price — the number is the amount, `USD` fixes the currency
+   so it doesn't default to something else.)
+4. Save, then push to GitHub (see Deploy steps below).
 
-- **Payment processor switched from Stripe to PayPal.** No redirect —
-  PayPal's button renders inline and completes in a popup.
-- **Price now reads from the Worker, not hardcoded in the page.** Change
-  `PRICE_USD_CENTS` once in `worker/wrangler.toml`; the page fetches
-  `/price` and displays it automatically. See "Deploying a price change"
-  below.
-- **Admin link removed from the public site.** It wasn't necessary — PayPal's
-  own Dashboard already shows every payment with receipts and export, and
-  Sheets logging is optional (see below). `admin.html` still exists in the
-  repo for direct-URL access if you ever want the custom dashboard; it's
-  just not linked anywhere a visitor would find it.
-- **"Grown-up settings" renamed** to "Additional water parameters (optional)".
-- **Glossary added**, in-app and in this README, explaining every acronym.
-- **One config file, not two.** `config.js` is the only place the Worker URL
-  and PayPal Client ID live. Both `index.html` and `admin.html` read from it.
-- **Fixed a real deploy bug:** every asset reference used to start with `/`
-  (absolute root path), which breaks on GitHub Pages project sites (served
-  from a subfolder, not the root). Everything now uses relative paths, and
-  `tests/paths.test.mjs` fails the build if this regresses.
-- **Two GitHub Actions workflows**, in `.github/workflows/`:
-  - `test.yml` — runs the full automated test suite on every push/PR.
-  - `deploy-worker.yml` — deploys the Cloudflare Worker automatically
-    whenever files under `worker/` change (including price changes).
-- **`scripts/check-ready.mjs`** — run `node scripts/check-ready.mjs` any
-  time to see exactly what's still missing before going live.
-
-## Architecture
-
-```
-Browser (PWA)                Cloudflare Worker              External
-─────────────                ─────────────────              ────────
-index.html/app.js  ───POST──▶ /create-order            ───▶ PayPal API
-                    ◀──id────
-   (PayPal button renders inline, user pays in a popup)
-                    ───POST──▶ /capture-order            ───▶ PayPal API
-                    ◀─status─
-                    ───GET───▶ /price                    (reads PRICE_USD_CENTS)
-
-PayPal             ───POST webhook──▶ /webhook  ──append row──▶ Google Sheets
-                                                  (optional, source of truth for logging)
-
-admin.html          ───POST──▶ /admin/login  (password → signed session token)
-                     ───GET───▶ /admin/transactions (reads Google Sheet, if configured)
-```
-
-GitHub Pages hosts the static frontend (`index.html`, `app.js`, `config.js`,
-`styles.css`, `admin.html`, `manifest.json`, `sw.js`). It cannot run server
-code or hold secrets, so the Worker is a separate, small backend on
-Cloudflare's free tier.
-
-## Do you need Google Sheets?
-
-No. It only powers the optional `admin.html` dashboard. PayPal's own
-Dashboard already shows every payment with receipts and export — skip
-Sheets entirely unless you specifically want the custom view.
+That's the entire payment setup. No API keys, no secrets, no CLI.
 
 ## Deploy steps
 
 ```bash
-# 1. Frontend — push this repo to GitHub, then enable Pages
-git init
-git remote add origin https://github.com/kabaa01/tea-water-advisor.git
 git add .
-git commit -m "Initial commit"
-git push -u origin main
-# GitHub → Settings → Pages → deploy from "main" branch, root folder
-
-# 2. Backend — deploy the Worker
-cd worker
-npm install
-npx wrangler login
-npx wrangler secret put PAYPAL_CLIENT_SECRET
-npx wrangler secret put PAYPAL_WEBHOOK_ID       # optional
-npx wrangler secret put ADMIN_PASSWORD
-npx wrangler secret put ADMIN_TOKEN_SECRET      # any long random string
-npx wrangler secret put GOOGLE_SERVICE_ACCOUNT  # optional — only if using Sheets
-npx wrangler secret put GOOGLE_SHEET_ID         # optional — only if using Sheets
-npx wrangler deploy
-```
-
-After deploying, copy your Worker URL (`https://tea-water-advisor.<you>.workers.dev`)
-into `config.js` — replace `YOUR-SUBDOMAIN`, and set `paypalClientId` there
-too. That's the only frontend file that needs it. Run
-`node scripts/check-ready.mjs` to confirm nothing's missing. Update
-`worker/wrangler.toml`'s `ALLOWED_ORIGIN`/`SITE_URL` to your actual GitHub
-Pages URL and `PAYPAL_CLIENT_ID` to match `config.js`, then `wrangler deploy`
-again (or just push — `deploy-worker.yml` does it for you if set up).
-
-## Deploying a price change (e.g. you just edited PRICE_USD_CENTS)
-
-The price lives in exactly one place: `worker/wrangler.toml` → `PRICE_USD_CENTS`
-under `[vars]`. The frontend always reads the current value from the Worker
-at `/price` — you never edit a price in the HTML/JS.
-
-**If you've set up the automated deploy** (`CLOUDFLARE_API_TOKEN` secret
-added in GitHub, see below): just commit and push.
-```powershell
-cd "C:\Users\John Kamau\Desktop\tea-water-advisor"
-git add worker/wrangler.toml
-git commit -m "Update price to 500 cents"
+git commit -m "Simplify to PayPal.me — no backend"
 git push
 ```
-The `deploy-worker.yml` Action detects the change under `worker/` and
-redeploys automatically — check the "Actions" tab on GitHub for progress.
 
-**If you haven't set up automated deploy yet**, deploy manually:
-```powershell
-cd "C:\Users\John Kamau\Desktop\tea-water-advisor\worker"
-npx wrangler deploy
-```
-Either way, no other file needs touching, and the frontend picks up the new
-price automatically the next time someone loads the page — no cache to
-clear on your end.
+GitHub Pages picks it up automatically within a minute or two — same as
+every previous deploy. There is nothing else to run, configure, or deploy.
+`.github/workflows/test.yml` runs the automated tests on every push
+automatically; it needs no secrets and can't fail for account/deployment
+reasons, since there's no longer anything external for it to deploy to.
 
-## Enabling the automated Worker deploy (optional but recommended)
+## Changing the price later
 
-1. In the Cloudflare dashboard: **My Profile → API Tokens → Create Token**
-   → use the "Edit Cloudflare Workers" template → copy the token.
-2. In your GitHub repo: **Settings → Secrets and variables → Actions →
-   New repository secret** → name it `CLOUDFLARE_API_TOKEN`, paste the value.
-3. From then on, any push to `main` that touches `worker/` (including a
-   price change in `wrangler.toml`) auto-deploys.
+Open `config.js`, change both the amount in `payPalLink` and `priceLabel`
+to match, save, commit, push. That's the whole process — no redeploy step
+beyond the normal `git push`.
 
 ## Sources for the scoring thresholds
 
@@ -215,34 +103,36 @@ report — the in-app copy says this, and so does this file.
 
 ## QA performed
 
-Automated (re-run anytime with `node --test tests/*.mjs` from the repo
-root, and automatically on every push via `.github/workflows/test.yml`):
+Automated (re-run anytime with `node --test tests/*.mjs`, and automatically
+on every push via `.github/workflows/test.yml`):
 
 - 10 scoring-engine tests (ideal/bad water, boundary handling, missing
   fields, fluoride/chlorine flags, invalid beverage, all profiles reachable,
   percentages always 0–100).
-- 1 path-regression test: fails the build if any local asset reference uses
-  an absolute root path again (the bug that broke the first deploy).
-- 4 config tests: no admin link on the public page, both HTML files load
-  `config.js`, no duplicated hardcoded Worker URLs outside `config.js`,
-  `admin.html` still exists as a direct-URL page.
+- 1 path-regression test (fails the build if any asset reference breaks on
+  GitHub Pages again).
+- 6 tests confirming the simplified deployment is genuinely simple: zero
+  leftover references to Stripe, PayPal's SDK, Cloudflare, wrangler,
+  Resend, or Google Sheets anywhere in the code; the payment flow makes
+  zero network calls; `config.js` never needs a secret; and the page never
+  fabricates a confirmation code it can't actually verify.
 
-Static checks re-run on every change: JSON validity (`manifest.json`,
-`worker/package.json`), JS syntax (`app.js`, `config.js`,
-`worker/src/index.js`), GitHub Actions YAML validity, every DOM id
-referenced in `app.js` matching one defined in `index.html`, HTML tag
-balance, and a full-text search confirming no leftover Stripe or
-"grown-up" references anywhere in the codebase. All checks passed on
-three consecutive runs of this version.
+Static checks re-run on every change: JSON validity, JS syntax, GitHub
+Actions YAML validity, every DOM id referenced in `app.js` matching one
+defined in `index.html`, and HTML tag balance. Repo file listing was also
+checked directly to confirm `worker/`, `admin.html`, and the Cloudflare
+deploy workflow are actually gone, not just unreferenced. All checks
+passed on three consecutive full runs of this version.
 
-**Not automated — still needs your pass**, because these require a live
-browser/device or real PayPal/GitHub accounts:
-- A real PayPal sandbox payment end-to-end (button → capture → unlock).
+**Not automated — still needs your pass**, because these require a real
+browser/device or an actual PayPal payment:
+- Clicking "Pay with PayPal" and confirming it opens your real PayPal.me
+  page with the right amount pre-filled.
 - Lighthouse/PWA audit (installability, offline behavior) in Chrome DevTools.
 - Screen-reader pass and keyboard-only navigation.
 - Mobile Safari/Chrome visual check.
 
 I ran every check I could actually execute rather than claim an open-ended
 "repeat until zero issues" loop in the abstract — that phrase only means
-something against a live environment. Once you deploy, tell me what breaks
-and I'll reproduce, patch, and re-test the same way.
+something against a live environment. Once you deploy, tell me what you
+see and I'll fix anything that's off.

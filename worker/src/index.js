@@ -5,6 +5,7 @@
  * Required secrets (set with `wrangler secret put <NAME>`):
  *   PAYPAL_CLIENT_SECRET     - from your PayPal REST API app (developer.paypal.com)
  *   PAYPAL_WEBHOOK_ID        - only needed if you configure a PayPal webhook
+ *   RESEND_API_KEY           - optional, sends the buyer a payment-confirmation email
  *   ADMIN_PASSWORD           - password for the /admin.html dashboard
  *   ADMIN_TOKEN_SECRET       - random 32+ char string, used to sign admin session tokens
  *   GOOGLE_SERVICE_ACCOUNT   - optional, full JSON key of a Google service account
@@ -13,6 +14,7 @@
  * Required vars (wrangler.toml [vars]):
  *   PAYPAL_CLIENT_ID         - from the same REST API app (not secret — safe to expose)
  *   PAYPAL_MODE              - "live" or "sandbox"
+ *   RESEND_FROM_EMAIL        - e.g. "Steep & Standard <receipts@yourdomain.com>" (needs a verified domain in Resend)
  *   ALLOWED_ORIGIN           - your GitHub Pages origin, e.g. https://kabaa01.github.io
  *   SITE_URL                 - same site, used for reference only
  *   PRICE_USD_CENTS          - price for one unlock, e.g. 500 for $5.00
@@ -220,6 +222,34 @@ async function verifyAdminToken(env, token) {
 }
 
 // ---------------------------------------------------------------------------
+// Payment-confirmation email (optional — via Resend's REST API)
+// ---------------------------------------------------------------------------
+async function sendConfirmationEmail(env, { toEmail, confirmationCode, beverage, amount }) {
+  if (!env.RESEND_API_KEY || !env.RESEND_FROM_EMAIL || !toEmail) return false;
+  const res = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${env.RESEND_API_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      from: env.RESEND_FROM_EMAIL,
+      to: [toEmail],
+      subject: "Your Steep & Standard payment confirmation",
+      html: `
+        <p>Thanks for your payment.</p>
+        <p><strong>Confirmation code:</strong> ${confirmationCode}</p>
+        <p><strong>Item:</strong> Brew water report — ${beverage}</p>
+        <p><strong>Amount:</strong> ${amount}</p>
+        <p>Keep this email as your receipt. If you have any questions about this
+        charge, reply with your confirmation code above.</p>
+      `,
+    }),
+  });
+  return res.ok;
+}
+
+// ---------------------------------------------------------------------------
 // Router
 // ---------------------------------------------------------------------------
 export default {
@@ -244,7 +274,29 @@ export default {
       if (url.pathname === "/capture-order" && request.method === "POST") {
         const { orderID } = await request.json();
         const result = await capturePayPalOrder(env, orderID);
-        return json({ status: result.status, id: result.id }, 200, env);
+
+        let emailSent = false;
+        if (result.status === "COMPLETED") {
+          const purchaseUnit = result.purchase_units?.[0];
+          const capture = purchaseUnit?.payments?.captures?.[0];
+          const toEmail = result.payer?.email_address;
+          const amount = capture?.amount
+            ? `${capture.amount.value} ${capture.amount.currency_code}`
+            : "";
+          try {
+            emailSent = await sendConfirmationEmail(env, {
+              toEmail,
+              confirmationCode: result.id,
+              beverage: purchaseUnit?.description || "brew",
+              amount,
+            });
+          } catch (emailErr) {
+            // Never fail the payment just because the confirmation email didn't send.
+            console.error("Confirmation email failed:", emailErr.message);
+          }
+        }
+
+        return json({ status: result.status, id: result.id, emailSent }, 200, env);
       }
 
       if (url.pathname === "/webhook" && request.method === "POST") {

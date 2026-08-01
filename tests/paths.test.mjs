@@ -5,7 +5,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 
-const files = ["index.html", "admin.html", "manifest.json", "sw.js", "app.js"];
+const files = ["index.html", "manifest.json", "sw.js", "app.js", "config.js"];
 const offenders = [];
 
 for (const file of files) {

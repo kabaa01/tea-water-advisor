@@ -96,14 +96,25 @@
       <div class="big-face" id="teaser-face">🙂</div>
       <p class="teaser-pct"><span id="teaser-pct">—</span><span class="pct-sign">%</span> golden ratio match</p>
       <p class="teaser-note" id="teaser-note"></p>
-      <p class="teaser-fade" id="price-label">Unlock the full report for a one-time fee.</p>
-      <div id="paypal-button-container"></div>
-      <p class="hint">Payment processed securely by PayPal.</p>
+
+      <div class="pay-box">
+        <p class="pay-price" id="price-label">Unlock the full report — $5.00</p>
+        <a id="pay-link" class="btn-primary btn-big pay-link" href="#" target="_blank" rel="noopener">
+          Pay with PayPal
+        </a>
+        <p class="hint">Opens PayPal in a new tab. PayPal will email you a receipt automatically.</p>
+        <button id="paid-btn" class="btn-secondary btn-big">I've paid — show my report</button>
+      </div>
     </div>
 
     <div id="result-unlocked" hidden>
       <div class="big-face" id="full-face">🙂</div>
       <p class="teaser-pct"><span id="overall-pct">—</span><span class="pct-sign">%</span> golden ratio match</p>
+      <div class="confirmation-banner">
+        <p class="confirmation-title">✅ Thanks for your payment</p>
+        <p>PayPal has sent a receipt to your email and to the seller. Keep that
+        email as your proof of payment — no separate code is needed.</p>
+      </div>
       <h2>What your water is doing to the cup</h2>
       <ul id="notes-list" class="notes-list"></ul>
     </div>

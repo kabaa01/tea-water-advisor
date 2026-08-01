@@ -226,4 +226,26 @@ input[type="range"]::-moz-range-thumb {
 .glossary dt { font-family: var(--mono); font-weight: 600; color: var(--verdigris); margin-top: 12px; }
 .glossary dd { margin: 2px 0 0; color: var(--text-dim); font-size: 0.92rem; }
 
-#paypal-button-container { margin: 10px 0; min-height: 45px; }
+/* ---- Payment status + confirmation ------------------------------------ */
+.confirmation-banner {
+  background: #F1F6F3;
+  border: 1px solid var(--verdigris-dim);
+  border-radius: 8px;
+  padding: 16px 18px;
+  margin: 0 0 20px;
+  text-align: left;
+}
+.confirmation-title { font-weight: 600; color: var(--verdigris); margin: 0 0 6px; }
+/* ---- Simple PayPal.me payment box -------------------------------------- */
+.pay-box { text-align: center; margin-top: 8px; }
+.pay-price { font-family: var(--serif); font-size: 1.3rem; font-weight: 600; color: var(--verdigris); margin: 0 0 14px; }
+.pay-link { display: block; text-decoration: none; margin-bottom: 12px; }
+.pay-link[aria-disabled="true"] { opacity: 0.5; pointer-events: none; }
+.btn-secondary {
+  display: block; width: 100%;
+  background: transparent; color: var(--verdigris);
+  border: 2px solid var(--verdigris-dim);
+  font-weight: 600; border-radius: 6px; cursor: pointer;
+}
+.btn-secondary:hover { background: #F1F6F3; }
+.btn-secondary:disabled { opacity: 0.5; cursor: not-allowed; }

@@ -72,7 +72,6 @@ function faceFor(pct) {
 }
 
 // ---- UI wiring --------------------------------------------------------
-const WORKER_BASE = window.TWA_CONFIG?.workerBase || "https://tea-water-advisor.YOUR-SUBDOMAIN.workers.dev";
 let currentDrink = null;
 let lastAdvice = null;
 
@@ -145,86 +144,43 @@ document.getElementById("check-btn").addEventListener("click", () => {
   document.getElementById("result-unlocked").hidden = true;
   document.getElementById("result-locked").hidden = false;
   document.getElementById("teaser-face").textContent = faceFor(lastAdvice.overall);
-  document.getElementById("teaser-pct").textContent = lastAdvice.overall ?? "—";
+  document.getElementById("teaser-pct").textContent = lastAdvice.overall ?? "\u2014";
   document.getElementById("teaser-note").textContent = lastAdvice.notes[0] || "";
   result.scrollIntoView({ behavior: "smooth", block: "start" });
   setUpPayment();
 });
 
-// ---- PayPal payment (dynamic: price and buttons load from the Worker) ----
-let paymentReady = false;
+// ---- Payment: a plain PayPal.me link, no backend involved --------------
+// Trade-off, by design: there is no server here to verify payment, so
+// "I've paid" is a self-report. PayPal itself emails a real receipt to
+// both the buyer and the seller automatically \u2014 that email is the
+// actual proof of payment, not anything shown on this page.
+function setUpPayment() {
+  const link = window.TWA_CONFIG?.payPalLink;
+  const priceLabel = window.TWA_CONFIG?.priceLabel || "";
+  const payLink = document.getElementById("pay-link");
+  const paidBtn = document.getElementById("paid-btn");
+  const priceEl = document.getElementById("price-label");
 
-async function fetchPrice() {
-  try {
-    const res = await fetch(`${WORKER_BASE}/price`);
-    const data = await res.json();
-    const dollars = ((data.cents || 500) / 100).toFixed(2);
-    document.getElementById("price-label").textContent = `Unlock the full report — $${dollars}`;
-  } catch {
-    document.getElementById("price-label").textContent = "Unlock the full report for a one-time fee.";
-  }
-}
+  const notConfigured = !link || link.includes("YOUR-PAYPAL");
+  priceEl.textContent = notConfigured
+    ? "Payments aren't set up on this site yet."
+    : `Unlock the full report \u2014 ${priceLabel}`;
 
-function loadPayPalSdk(clientId) {
-  return new Promise((resolve, reject) => {
-    if (window.paypal) { resolve(window.paypal); return; }
-    const s = document.createElement("script");
-    s.src = `https://www.paypal.com/sdk/js?client-id=${encodeURIComponent(clientId)}&currency=USD`;
-    s.onload = () => resolve(window.paypal);
-    s.onerror = () => reject(new Error("Could not load PayPal"));
-    document.head.appendChild(s);
-  });
-}
-
-async function setUpPayment() {
-  fetchPrice();
-  if (paymentReady) return; // buttons only need to be rendered once
-
-  const clientId = window.TWA_CONFIG?.paypalClientId;
-  const notConfigured = !WORKER_BASE || WORKER_BASE.includes("YOUR-SUBDOMAIN") ||
-    !clientId || clientId === "YOUR_PAYPAL_CLIENT_ID";
   if (notConfigured) {
-    document.getElementById("paypal-button-container").textContent =
-      "Payments aren't set up on this site yet — the site owner needs to add PayPal credentials.";
+    payLink.setAttribute("aria-disabled", "true");
+    payLink.href = "#";
+    paidBtn.disabled = true;
     return;
   }
 
-  try {
-    const paypal = await loadPayPalSdk(clientId);
-    paypal.Buttons({
-      createOrder: async () => {
-        const res = await fetch(`${WORKER_BASE}/create-order`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ beverage: lastAdvice.profile.label }),
-        });
-        const data = await res.json();
-        if (!data.id) throw new Error(data.error || "Could not start payment");
-        return data.id;
-      },
-      onApprove: async (data) => {
-        const res = await fetch(`${WORKER_BASE}/capture-order`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ orderID: data.orderID }),
-        });
-        const result = await res.json();
-        if (result.status === "COMPLETED") {
-          renderFullReport(lastAdvice);
-        } else {
-          alert("Payment could not be completed. Please try again.");
-        }
-      },
-      onError: (err) => {
-        alert("PayPal error: " + (err?.message || "please try again."));
-      },
-    }).render("#paypal-button-container");
-    paymentReady = true;
-  } catch (err) {
-    document.getElementById("paypal-button-container").textContent =
-      "PayPal could not load. Please refresh and try again.";
-  }
+  payLink.href = link;
+  paidBtn.disabled = false;
 }
+
+document.getElementById("paid-btn").addEventListener("click", () => {
+  renderFullReport(lastAdvice);
+});
 
 function renderFullReport(advice) {
   const result = document.getElementById("result");
@@ -232,7 +188,7 @@ function renderFullReport(advice) {
   document.getElementById("result-locked").hidden = true;
   document.getElementById("result-unlocked").hidden = false;
   document.getElementById("full-face").textContent = faceFor(advice.overall);
-  document.getElementById("overall-pct").textContent = advice.overall ?? "—";
+  document.getElementById("overall-pct").textContent = advice.overall ?? "\u2014";
   const list = document.getElementById("notes-list");
   list.innerHTML = "";
   advice.notes.forEach(n => {
@@ -240,6 +196,7 @@ function renderFullReport(advice) {
     li.textContent = n;
     list.appendChild(li);
   });
+  result.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
 if ("serviceWorker" in navigator) {
