@@ -54,3 +54,19 @@ test("scoring engine is untouched by the payment simplification — still six fu
     assert.match(appJs, new RegExp(`${key}:\\s*\\{\\s*label:`), `missing profile: ${key}`);
   }
 });
+
+test("reveal button cannot be used until the PayPal link has been clicked and confirmed", () => {
+  assert.match(indexHtml, /id="paid-checkbox"[^>]*disabled/, "confirmation checkbox should start disabled");
+  assert.match(indexHtml, /id="paid-btn"[^>]*disabled/, "reveal button should start disabled");
+  assert.match(appJs, /paidCheckbox\.disabled = false/, "clicking the PayPal link should be what enables the checkbox");
+  assert.match(appJs, /paidBtn\.disabled = !paidCheckbox\.checked/, "reveal button should only enable once the checkbox is checked");
+});
+
+test("the page states plainly, at decision time, that payment cannot be auto-verified", () => {
+  assert.match(indexHtml, /can't automatically verify PayPal payments/i);
+});
+
+test("confirmation state resets on every new water reading, not left over from a prior one", () => {
+  assert.match(appJs, /paidCheckbox\.checked = false;/);
+  assert.match(appJs, /paidCheckbox\.disabled = true;/);
+});

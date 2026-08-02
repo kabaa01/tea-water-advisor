@@ -146,6 +146,11 @@ document.getElementById("check-btn").addEventListener("click", () => {
   document.getElementById("teaser-face").textContent = faceFor(lastAdvice.overall);
   document.getElementById("teaser-pct").textContent = lastAdvice.overall ?? "\u2014";
   document.getElementById("teaser-note").textContent = lastAdvice.notes[0] || "";
+  const paidCheckbox = document.getElementById("paid-checkbox");
+  paidCheckbox.checked = false;
+  paidCheckbox.disabled = true;
+  document.getElementById("paid-btn").disabled = true;
+  document.getElementById("confirm-hint").textContent = "Click \"Pay with PayPal\" above first.";
   result.scrollIntoView({ behavior: "smooth", block: "start" });
   setUpPayment();
 });
@@ -159,7 +164,9 @@ function setUpPayment() {
   const link = window.TWA_CONFIG?.payPalLink;
   const priceLabel = window.TWA_CONFIG?.priceLabel || "";
   const payLink = document.getElementById("pay-link");
+  const paidCheckbox = document.getElementById("paid-checkbox");
   const paidBtn = document.getElementById("paid-btn");
+  const confirmHint = document.getElementById("confirm-hint");
   const priceEl = document.getElementById("price-label");
 
   const notConfigured = !link || link.includes("YOUR-PAYPAL");
@@ -170,16 +177,28 @@ function setUpPayment() {
   if (notConfigured) {
     payLink.setAttribute("aria-disabled", "true");
     payLink.href = "#";
-    paidBtn.disabled = true;
     return;
   }
 
   payLink.href = link;
-  paidBtn.disabled = false;
+
+  // Step 1: the confirmation checkbox stays disabled until they've actually
+  // clicked through to PayPal at least once.
+  payLink.addEventListener("click", () => {
+    paidCheckbox.disabled = false;
+    confirmHint.textContent = "Only check this after you've actually completed the payment on PayPal.";
+  }, { once: true });
+
+  // Step 2: the reveal button stays disabled until the checkbox is checked.
+  paidCheckbox.addEventListener("change", () => {
+    paidBtn.disabled = !paidCheckbox.checked;
+  });
 }
 
 document.getElementById("paid-btn").addEventListener("click", () => {
-  renderFullReport(lastAdvice);
+  if (document.getElementById("paid-checkbox").checked) {
+    renderFullReport(lastAdvice);
+  }
 });
 
 function renderFullReport(advice) {
