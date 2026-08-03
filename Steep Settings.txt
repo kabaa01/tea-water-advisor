@@ -1,0 +1,5 @@
+Ae9JoVABSVv61XxZe_siOHmZn6HTJk6fHJZPM2Pd9KcrORkCr9bjj86FPYmglvJq__dLcCTMF56GMCfD - Client ID
+
+EPP0sX2abvYFEds6JKvkEipEt22FO6B2Gg3N8cSLN_MfZMPmoAfd-xjUMEnwfWglpUz9CNeEGehJ0r2K - Secret
+
+https://steepandstandard.kabaa01tea2026.workers.dev - workerBase

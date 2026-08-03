@@ -155,12 +155,89 @@ document.getElementById("check-btn").addEventListener("click", () => {
   setUpPayment();
 });
 
-// ---- Payment: a plain PayPal.me link, no backend involved --------------
-// Trade-off, by design: there is no server here to verify payment, so
-// "I've paid" is a self-report. PayPal itself emails a real receipt to
-// both the buyer and the seller automatically \u2014 that email is the
-// actual proof of payment, not anything shown on this page.
-function setUpPayment() {
+// ---- Payment ---------------------------------------------------------
+// Two modes, auto-detected from config.js:
+//  - Real verification: if workerBase + paypalClientId are set, PayPal's
+//    own Buttons render and the Worker confirms the capture with PayPal
+//    directly before unlocking anything.
+//  - Manual fallback: a plain PayPal.me link plus a self-report step,
+//    used automatically until the Worker is configured.
+let paypalButtonsRendered = false;
+
+function verificationConfigured() {
+  const worker = window.TWA_CONFIG?.workerBase;
+  const clientId = window.TWA_CONFIG?.paypalClientId;
+  return !!worker && !worker.includes("YOUR-WORKER") &&
+         !!clientId && clientId !== "YOUR_PAYPAL_CLIENT_ID";
+}
+
+function loadPayPalSdk(clientId) {
+  return new Promise((resolve, reject) => {
+    if (window.paypal) { resolve(window.paypal); return; }
+    const s = document.createElement("script");
+    s.src = `https://www.paypal.com/sdk/js?client-id=${encodeURIComponent(clientId)}&currency=USD`;
+    s.onload = () => resolve(window.paypal);
+    s.onerror = () => reject(new Error("Could not load PayPal"));
+    document.head.appendChild(s);
+  });
+}
+
+async function setUpVerifiedPayment() {
+  const worker = window.TWA_CONFIG.workerBase;
+  const clientId = window.TWA_CONFIG.paypalClientId;
+  document.getElementById("manual-pay-flow").hidden = true;
+  document.getElementById("paypal-button-container").hidden = false;
+  document.getElementById("verified-note").hidden = false;
+
+  try {
+    const res = await fetch(`${worker}/price`);
+    const data = await res.json();
+    document.getElementById("price-label").textContent =
+      `Unlock the full report \u2014 $${((data.cents || 500) / 100).toFixed(2)}`;
+  } catch { /* keep the default label if the Worker hasn't woken up yet */ }
+
+  if (paypalButtonsRendered) return; // render once, reuse across readings
+
+  try {
+    const paypal = await loadPayPalSdk(clientId);
+    paypal.Buttons({
+      createOrder: async () => {
+        const res = await fetch(`${worker}/create-order`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ beverage: lastAdvice.profile.label }),
+        });
+        const data = await res.json();
+        if (!data.id) throw new Error(data.error || "Could not start payment");
+        return data.id;
+      },
+      onApprove: async (data) => {
+        const res = await fetch(`${worker}/capture-order`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ orderID: data.orderID }),
+        });
+        const result = await res.json();
+        if (result.status === "COMPLETED") {
+          renderFullReport(lastAdvice); // only reached after PayPal itself confirms
+        } else {
+          alert("Payment could not be confirmed. Please try again.");
+        }
+      },
+      onCancel: () => {},
+      onError: () => {
+        document.getElementById("paypal-button-container").textContent =
+          "PayPal had a problem loading. Please refresh and try again.";
+      },
+    }).render("#paypal-button-container");
+    paypalButtonsRendered = true;
+  } catch {
+    document.getElementById("paypal-button-container").textContent =
+      "PayPal could not load. Please refresh and try again.";
+  }
+}
+
+function setUpManualPayment() {
   const link = window.TWA_CONFIG?.payPalLink;
   const priceLabel = window.TWA_CONFIG?.priceLabel || "";
   const payLink = document.getElementById("pay-link");
@@ -182,17 +259,22 @@ function setUpPayment() {
 
   payLink.href = link;
 
-  // Step 1: the confirmation checkbox stays disabled until they've actually
-  // clicked through to PayPal at least once.
   payLink.addEventListener("click", () => {
     paidCheckbox.disabled = false;
     confirmHint.textContent = "Only check this after you've actually completed the payment on PayPal.";
   }, { once: true });
 
-  // Step 2: the reveal button stays disabled until the checkbox is checked.
   paidCheckbox.addEventListener("change", () => {
     paidBtn.disabled = !paidCheckbox.checked;
   });
+}
+
+function setUpPayment() {
+  if (verificationConfigured()) {
+    setUpVerifiedPayment();
+  } else {
+    setUpManualPayment();
+  }
 }
 
 document.getElementById("paid-btn").addEventListener("click", () => {
