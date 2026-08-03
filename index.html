@@ -99,38 +99,29 @@
 
       <div class="pay-box">
         <p class="pay-price" id="price-label">Unlock the full report — $5.00</p>
-
-        <div id="paypal-button-container" hidden></div>
-        <p class="hint verify-note" id="verified-note" hidden>Payment is checked automatically with PayPal before your report unlocks.</p>
-
-        <div id="manual-pay-flow">
-          <a id="pay-link" class="btn-primary btn-big pay-link" href="#" target="_blank" rel="noopener">
-            1. Pay with PayPal
-          </a>
-          <p class="hint">Opens PayPal in a new tab. PayPal will email you a receipt automatically.</p>
-
-          <div class="confirm-box">
-            <label class="confirm-label">
-              <input type="checkbox" id="paid-checkbox" disabled>
-              2. I confirm I completed the payment on PayPal
-            </label>
-            <p class="hint" id="confirm-hint">Click "Pay with PayPal" above first.</p>
-          </div>
-
-          <button id="paid-btn" class="btn-secondary btn-big" disabled>3. Show my report</button>
-          <p class="hint verify-note">This site can't automatically verify PayPal payments — this confirms it on your word, and PayPal's receipt email is your actual proof of payment.</p>
-        </div>
+        <a id="pay-link" class="btn-primary btn-big pay-link" href="#" target="_blank" rel="noopener">
+          1. Pay with PayPal
+        </a>
+        <p class="hint">Opens PayPal in a new tab. PayPal will email you a receipt automatically.</p>
+        <button id="paid-btn" class="btn-secondary btn-big" disabled>2. Show my report</button>
       </div>
     </div>
 
     <div id="result-unlocked" hidden>
       <div class="big-face" id="full-face">🙂</div>
       <p class="teaser-pct"><span id="overall-pct">—</span><span class="pct-sign">%</span> golden ratio match</p>
-      <div class="confirmation-banner">
-        <p class="confirmation-title">✅ Thanks for your payment</p>
-        <p>PayPal has sent a receipt to your email and to the seller. Keep that
-        email as your proof of payment — no separate code is needed.</p>
+
+      <div class="verify-box">
+        <p class="verify-title">📧 Verify your payment (helps us confirm it faster)</p>
+        <ol class="verify-steps">
+          <li>Screenshot your PayPal receipt, or copy the Transaction ID.</li>
+          <li>Email it to <a href="#" id="verify-email-link">belltowerkenya@gmail.com</a>.</li>
+          <li>Include your name and today's date.</li>
+        </ol>
       </div>
+
+      <div id="detailed-report"></div>
+
       <h2>What your water is doing to the cup</h2>
       <ul id="notes-list" class="notes-list"></ul>
     </div>

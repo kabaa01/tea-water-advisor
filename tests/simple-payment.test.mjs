@@ -1,8 +1,6 @@
-// Regression tests for the dual-mode payment setup: a manual PayPal.me
-// fallback that works with zero backend, plus an optional real-verification
-// path (cloudflare-worker-source.js) that the frontend only uses once it's
-// actually configured. No Stripe, Resend, Google Sheets, admin dashboard,
-// or local npm/wrangler tooling anywhere in the repo.
+// Regression tests for the manual PayPal.me flow with human-checked
+// verification (email to belltowerkenya@gmail.com) instead of any
+// automated Worker-based check, plus the expanded detailed report.
 import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -14,62 +12,70 @@ function read(path) {
 const indexHtml = read("index.html");
 const appJs = read("app.js");
 const configJs = read("config.js");
-const workerSrc = read("cloudflare-worker-source.js");
 
-const forbidden = ["stripe", "resend", "google", "sheets.googleapis", "grown-up", "grown up"];
+const forbidden = [
+  "stripe", "resend", "google", "sheets.googleapis", "grown-up", "grown up",
+  "wrangler", "cloudflare", "workers.dev", "paypal.com/sdk",
+  "create-order", "capture-order", "verificationconfigured", "setupverifiedpayment",
+];
 
-test("no leftover unrelated service dependency anywhere in the project", () => {
-  const haystack = (indexHtml + appJs + configJs + workerSrc).toLowerCase();
+test("no automated/backend verification remains anywhere in the frontend", () => {
+  const haystack = (indexHtml + appJs + configJs).toLowerCase();
   for (const term of forbidden) {
     assert.ok(!haystack.includes(term.toLowerCase()), `found forbidden leftover term: "${term}"`);
   }
 });
 
-test("worker/, admin.html, and any local Worker tooling no longer exist", () => {
-  assert.ok(!fs.existsSync(new URL("../worker", import.meta.url)), "the old worker/ folder should never come back");
+test("cloudflare-worker-source.js and worker/ no longer exist", () => {
+  assert.ok(!fs.existsSync(new URL("../cloudflare-worker-source.js", import.meta.url)));
+  assert.ok(!fs.existsSync(new URL("../worker", import.meta.url)));
   assert.ok(!fs.existsSync(new URL("../admin.html", import.meta.url)));
-  assert.ok(!fs.existsSync(new URL("../.github/workflows/deploy-worker.yml", import.meta.url)));
-  assert.ok(!fs.existsSync(new URL("../node_modules", import.meta.url)), "the Worker is dashboard-deployed \u2014 nothing should ever be npm-installed in this repo");
-  assert.ok(!fs.existsSync(new URL("../wrangler.toml", import.meta.url)), "the dashboard editor needs no wrangler config file");
 });
 
-test("cloudflare-worker-source.js is a single flat file with only the two verification jobs", () => {
-  assert.match(workerSrc, /\/create-order/);
-  assert.match(workerSrc, /\/capture-order/);
-  assert.match(workerSrc, /is NOT deployed automatically/i, "the file must say plainly it's copy-paste, not auto-deployed");
-});
-
-test("config.js exposes only non-secret values", () => {
+test("config.js exposes only non-secret values, including the verification email", () => {
   assert.match(configJs, /payPalLink/);
   assert.match(configJs, /priceLabel/);
-  assert.match(configJs, /workerBase/);
-  assert.match(configJs, /paypalClientId/);
-  assert.ok(!/secret/i.test(configJs), "config.js should never hold a secret \u2014 it's a public file");
+  assert.match(configJs, /verificationEmail/);
+  assert.match(configJs, /belltowerkenya@gmail\.com/);
+  assert.ok(!/secret|api[_-]?key/i.test(configJs));
 });
 
-test("frontend auto-detects verified vs manual mode instead of requiring a code change", () => {
-  assert.match(appJs, /function verificationConfigured/);
-  assert.match(appJs, /setUpVerifiedPayment/);
-  assert.match(appJs, /setUpManualPayment/);
+test("the verify-by-email step lives inside the unlocked report, not gating access to it", () => {
+  // "verify-box" must be inside result-unlocked, not result-locked
+  const lockedIdx = indexHtml.indexOf('id="result-locked"');
+  const unlockedIdx = indexHtml.indexOf('id="result-unlocked"');
+  const verifyIdx = indexHtml.indexOf('class="verify-box"');
+  assert.ok(verifyIdx > unlockedIdx && unlockedIdx > lockedIdx, "verify-box should appear after result-unlocked opens");
 });
 
-test("verified path only unlocks the report after PayPal itself returns COMPLETED", () => {
-  assert.match(appJs, /result\.status === "COMPLETED"/);
-  assert.match(appJs, /renderFullReport\(lastAdvice\); \/\/ only reached after PayPal itself confirms/);
+test("verify-by-email instructions are brief (a short numbered list, not a wall of text)", () => {
+  const match = indexHtml.match(/<ol class="verify-steps">([\s\S]*?)<\/ol>/);
+  assert.ok(match, "expected a short ordered list of verification steps");
+  const items = match[1].match(/<li>/g) || [];
+  assert.ok(items.length >= 2 && items.length <= 5, `expected 2-5 brief steps, found ${items.length}`);
 });
 
-test("manual fallback still exists and still has its click-then-confirm safeguard", () => {
-  assert.match(indexHtml, /id="paid-checkbox"[^>]*disabled/);
-  assert.match(indexHtml, /id="paid-btn"[^>]*disabled/);
-  assert.match(appJs, /paidCheckbox\.disabled = false/);
-  assert.match(indexHtml, /can't automatically verify PayPal payments/i);
+test("payment gate is now two simple steps with no fake auto-verification claim", () => {
+  assert.match(indexHtml, /1\. Pay with PayPal/);
+  assert.match(indexHtml, /2\. Show my report/);
+  assert.match(appJs, /payLink\.addEventListener\("click", \(\) => \{\s*paidBtn\.disabled = false;/);
 });
 
-test("the page does not fabricate a confirmation code in either mode", () => {
-  assert.ok(!/confirmation-code/i.test(indexHtml));
+test("detailed report covers every tested parameter with an explanation, not just one-line notes", () => {
+  assert.match(appJs, /function buildDetailedReport/);
+  assert.match(appJs, /pH — acidity \/ alkalinity/);
+  assert.match(appJs, /TDS — Total Dissolved Solids/);
+  assert.match(appJs, /Hardness \(Calcium\/Magnesium/);
+  assert.match(appJs, /BREW_GUIDANCE/);
 });
 
-test("scoring engine is untouched \u2014 still six full beverage profiles", () => {
+test("brewing guidance exists for all six beverages", () => {
+  for (const key of ["green", "black", "oolong", "white", "herbal", "coffee"]) {
+    assert.match(appJs, new RegExp(`${key}:\\s*\\{\\s*temp:`), `missing brew guidance for ${key}`);
+  }
+});
+
+test("scoring engine is untouched — still six full beverage profiles", () => {
   for (const key of ["green", "black", "oolong", "white", "herbal", "coffee"]) {
     assert.match(appJs, new RegExp(`${key}:\\s*\\{\\s*label:`), `missing profile: ${key}`);
   }

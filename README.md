@@ -30,24 +30,27 @@ to configure with a command line.
 | PWA | Progressive Web App |
 | CI | Continuous Integration — automatically running tests on every code change |
 
-## How payment works (the simple version)
+## How payment works
 
 There is no backend. The "Pay with PayPal" button is a plain link to your
 **PayPal.me** page with the price built into the URL. When someone clicks
 it, PayPal opens in a new tab and they pay you directly — funds land in
-your PayPal account (`kabaa01@yahoo.com`) immediately, the same as if
-you'd texted them the link yourself.
+your PayPal account (`kabaa01@yahoo.com`) immediately.
 
-**The honest trade-off:** because there's no server, this page can't
-automatically confirm a payment happened. After paying, the buyer clicks
-"I've paid — show my report" themselves to reveal it. PayPal always sends
-a real receipt by email to both you and the buyer automatically — that
-email is the actual proof of payment, and it requires no setup on your
-part. For a low-cost digital report like this, that's a completely normal
-approach; it trades a small amount of trust for zero technical complexity.
-If you ever want real automatic verification, that requires the backend
-approach we removed — let me know if you want it back for a specific
-reason and I can re-add just that piece.
+**Verification is a real human check, not an automated one.** After
+paying, the buyer clicks "Show my report" to reveal it immediately (no
+gate beyond having clicked the pay link). Inside the unlocked report is a
+short, plainly-worded box asking them to email proof of payment — a
+screenshot of the PayPal receipt or the Transaction ID — to
+**belltowerkenya@gmail.com**, along with their name and the date. That
+email is what you personally check, rather than any code checking PayPal
+on your behalf. This intentionally trades automatic verification for
+zero backend complexity and puts you in control of confirming payments
+yourself.
+
+If you ever want real *automatic* verification again (PayPal itself
+confirming the charge before the report unlocks), that requires a small
+server-side piece — ask and I'll scope the minimal version.
 
 ### One-time setup (5 minutes, no technical steps)
 
@@ -57,6 +60,7 @@ reason and I can re-add just that piece.
    ```js
    payPalLink: "https://paypal.me/kabaa01/5USD",
    priceLabel: "$5.00",
+   verificationEmail: "belltowerkenya@gmail.com",
    ```
    (Replace `kabaa01` with whatever name you actually claimed, and `5USD`
    with your price — the number is the amount, `USD` fixes the currency
@@ -69,103 +73,28 @@ That's the entire payment setup. No API keys, no secrets, no CLI.
 
 ```bash
 git add .
-git commit -m "Simplify to PayPal.me — no backend"
+git commit -m "Add manual payment verification and detailed report"
 git push
 ```
 
-GitHub Pages picks it up automatically within a minute or two — same as
-every previous deploy. There is nothing else to run, configure, or deploy.
-`.github/workflows/test.yml` runs the automated tests on every push
-automatically; it needs no secrets and can't fail for account/deployment
-reasons, since there's no longer anything external for it to deploy to.
+GitHub Pages picks it up automatically within a minute or two. There is
+nothing else to run, configure, or deploy. `.github/workflows/test.yml`
+runs the automated tests on every push automatically; it needs no secrets.
 
 ## Changing the price later
 
 Open `config.js`, change both the amount in `payPalLink` and `priceLabel`
-to match, save, commit, push. That's the whole process — no redeploy step
-beyond the normal `git push`.
+to match, save, commit, push. That's the whole process.
 
-## Two payment modes — the page picks automatically
+## The detailed report
 
-`config.js` controls which mode is active. You don't choose a mode
-explicitly — the page checks whether `workerBase` and `paypalClientId`
-are filled in with real values and switches automatically:
-
-- **Not filled in (default):** the manual flow — a PayPal.me link plus a
-  click-then-confirm step. Zero backend, zero setup beyond claiming a
-  PayPal.me link. This is what you've been using.
-- **Filled in:** real, automatic verification. PayPal's own payment
-  buttons render, and a small server-side check confirms the payment
-  actually completed with PayPal before anything unlocks — no more
-  honor system.
-
-## Setting up real payment verification (optional)
-
-This needs a tiny piece of server code, because verifying a payment with
-PayPal requires a secret key that must never be visible in a browser.
-Cloudflare Workers gives you a free way to run that one small check —
-**entirely through their website**. No command line, no installing
-anything, no `node_modules`, no GitHub Actions.
-
-### A. Get PayPal API credentials (5 minutes)
-
-1. Log into **developer.paypal.com** as `kabaa01@yahoo.com`.
-2. **Apps & Credentials** → **Create App** → give it any name → Create.
-3. Copy the **Client ID** and **Secret** shown — you'll need both shortly.
-4. Start with the **Sandbox** app first to test safely before going live.
-
-### B. Deploy the verification code (10 minutes, all in the browser)
-
-1. Go to **dash.cloudflare.com** → log in (or sign up free) → **Workers & Pages**.
-2. Click **Create** → **Create Worker** → give it any name (e.g.
-   `steep-verify`) → **Deploy** (it deploys a placeholder first — that's fine).
-3. Click **Edit code** — this opens a code editor right in your browser.
-4. Delete everything in the editor, then open `cloudflare-worker-source.js`
-   from this project on your computer, copy its entire contents, and paste
-   it into the browser editor.
-5. Click **Deploy** (or **Save and Deploy**) in the editor toolbar.
-6. Copy the URL shown at the top (something like
-   `https://steep-verify.your-name.workers.dev`) — this is your `workerBase`.
-
-### C. Set the variables (5 minutes, all in the browser)
-
-Still on that Worker's page: **Settings** → **Variables and Secrets** → **Add**:
-
-| Name | Value | Type |
-|---|---|---|
-| `PAYPAL_CLIENT_ID` | from step A | Variable |
-| `PAYPAL_CLIENT_SECRET` | from step A | **Secret** |
-| `PAYPAL_MODE` | `sandbox` (switch to `live` later) | Variable |
-| `ALLOWED_ORIGIN` | `https://kabaa01.github.io` | Variable |
-| `PRICE_USD_CENTS` | `500` | Variable |
-
-Click **Save and deploy** after adding them.
-
-### D. Point the site at it
-
-Open `config.js` in this project and fill in:
-```js
-workerBase: "https://steep-verify.your-name.workers.dev",
-paypalClientId: "the Client ID from step A",
-```
-Save, then:
-```powershell
-git add .
-git commit -m "Enable real payment verification"
-git push
-```
-
-That's the entire setup. To change anything later (price, switch to
-live mode, etc.), you go back to **Settings → Variables and Secrets** on
-the Cloudflare dashboard and edit the value — no redeploying, no CLI, ever.
-
-### Testing it
-
-With `PAYPAL_MODE = sandbox`, use PayPal's sandbox test buyer account
-(developer.paypal.com → Sandbox → Accounts) to pay without real money.
-Once it works, change `PAYPAL_MODE` to `live` and swap in your live
-Client ID/Secret from a live PayPal app (same Apps & Credentials page,
-toggle from Sandbox to Live at the top).
+Once unlocked, the report goes well beyond the free teaser: a plain-
+English summary paragraph, a full breakdown of every tested parameter
+(your reading, the ideal range, and a real explanation of what it's
+doing to the cup — not just a one-line note), a fluoride/chlorine safety
+callout when relevant, and general brewing guidance (water temperature
+and steep time) for the chosen beverage, sourced from widely published
+brewing practice and the SCA Golden Cup standard for coffee.
 
 ## Sources for the scoring thresholds
 
@@ -193,26 +122,31 @@ on every push via `.github/workflows/test.yml`):
   percentages always 0–100).
 - 1 path-regression test (fails the build if any asset reference breaks on
   GitHub Pages again).
-- 9 tests covering the dual-mode payment setup: the manual click-then-
-  confirm safeguard, the real-verification path only unlocking after
-  PayPal itself returns `COMPLETED`, `config.js` never needing a secret,
-  no leftover Stripe/Resend/Sheets code, no `worker/` folder or local
-  `node_modules`/`wrangler.toml` ever reappearing, and
-  `cloudflare-worker-source.js` stating plainly that it isn't auto-deployed.
+- 9 tests covering the manual-verification payment setup: no automated
+  backend/API code remains anywhere, `config.js` exposes only non-secret
+  values including the verification email, the verify-by-email step lives
+  inside the unlocked report (not gating access to it) and stays brief
+  (2–5 steps), the pay gate is two simple steps with no false
+  auto-verification claim, and the detailed report actually covers every
+  tested parameter with a real explanation plus brewing guidance for all
+  six beverages.
 
-Static checks re-run on every change: JSON validity, JS syntax (including
-`cloudflare-worker-source.js`), GitHub Actions YAML validity, every DOM id
-referenced in `app.js` matching one defined in `index.html`, and HTML tag
-balance. Repo file listing was also checked directly to confirm no stray
-Worker folders or install artifacts exist. All checks passed on three
-consecutive full runs of this version.
+Static checks re-run on every change: JSON validity, JS syntax, GitHub
+Actions YAML validity, every DOM id referenced in `app.js` matching one
+defined in `index.html`, and HTML tag balance including the new report
+markup (`<ol>`/`<li>`/extra `<a>` for the mailto link). A functional
+smoke test also ran `buildDetailedReport()` directly in Node against
+several real inputs (ideal coffee water, and bad green-tea water with a
+fluoride flag and chlorine both present) to confirm it produces real
+content in every branch, not just that the function exists. All checks
+passed on three consecutive full runs of this version.
 
 **Not automated — still needs your pass**, because these require a real
 browser/device or an actual PayPal payment:
-- The manual flow: clicking "Pay with PayPal" and confirming it opens
-  your real PayPal.me page with the right amount pre-filled.
-- The verified flow (once set up): a real sandbox payment end-to-end —
-  PayPal button → approve → report unlocks only after `COMPLETED`.
+- Clicking "Pay with PayPal" and confirming it opens your real PayPal.me
+  page with the right amount pre-filled.
+- Confirming the `mailto:` verification link opens your email client with
+  the right address and subject pre-filled.
 - Lighthouse/PWA audit (installability, offline behavior) in Chrome DevTools.
 - Screen-reader pass and keyboard-only navigation.
 - Mobile Safari/Chrome visual check.
