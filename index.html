@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Steep & Standard — Perfect Brew Checker</title>
-<meta name="description" content="Pick your drink, check your water, see if it's the golden ratio for the best taste.">
+<title>Steep & Standard — Water & Brew Advisor</title>
+<meta name="description" content="Pick your drink, estimate or enter your water quality, see the golden ratio for the best taste.">
 <meta name="theme-color" content="#1F2E29">
 <link rel="manifest" href="./manifest.json">
 <link rel="icon" href="./icons/icon-192.png">
@@ -42,8 +42,15 @@
   </section>
 
   <section class="panel" id="sliders-panel" hidden>
-    <h1>2. Move the dials to match your water</h1>
-    <p class="sub">Don't know your numbers? Leave the dials where they are — that's already the golden ratio. Get real numbers from any water-test strip or lab report.</p>
+    <h1>2. Set your water</h1>
+
+    <div class="location-box">
+      <button id="use-location-btn" class="btn-secondary btn-big">📍 Estimate from my location</button>
+      <p class="hint">Uses your device's location once, only to look up your country, then sets a starting estimate below. Nothing is stored or sent anywhere except a one-time lookup with OpenStreetMap. You can still enter your own numbers regardless.</p>
+      <p id="location-status" class="location-status" aria-live="polite"></p>
+    </div>
+
+    <p class="sub">Don't have exact numbers? Leave the dials where they are, use the location estimate above, or get real numbers from a water-test strip or lab report.</p>
 
     <div class="slider-block">
       <div class="slider-head">
@@ -87,45 +94,16 @@
       </div>
     </details>
 
-    <button id="check-btn" class="btn-primary btn-big">See my result 🔍</button>
+    <button id="check-btn" class="btn-primary btn-big">3. See my full report 🔍</button>
   </section>
 
   <section id="result" class="panel result" hidden>
-
-    <div id="result-locked">
-      <div class="big-face" id="teaser-face">🙂</div>
-      <p class="teaser-pct"><span id="teaser-pct">—</span><span class="pct-sign">%</span> golden ratio match</p>
-      <p class="teaser-note" id="teaser-note"></p>
-
-      <div class="pay-box">
-        <p class="pay-price" id="price-label">Unlock the full report — $5.00</p>
-        <a id="pay-link" class="btn-primary btn-big pay-link" href="#" target="_blank" rel="noopener">
-          1. Pay with PayPal
-        </a>
-        <p class="hint">Opens PayPal in a new tab. PayPal will email you a receipt automatically.</p>
-        <button id="paid-btn" class="btn-secondary btn-big" disabled>2. Show my report</button>
-      </div>
-    </div>
-
-    <div id="result-unlocked" hidden>
-      <div class="big-face" id="full-face">🙂</div>
-      <p class="teaser-pct"><span id="overall-pct">—</span><span class="pct-sign">%</span> golden ratio match</p>
-
-      <div class="verify-box">
-        <p class="verify-title">📧 Verify your payment (helps us confirm it faster)</p>
-        <ol class="verify-steps">
-          <li>Screenshot your PayPal receipt, or copy the Transaction ID.</li>
-          <li>Email it to <a href="#" id="verify-email-link">belltowerkenya@gmail.com</a>.</li>
-          <li>Include your name and today's date.</li>
-        </ol>
-      </div>
-
-      <div id="detailed-report"></div>
-
-      <h2>What your water is doing to the cup</h2>
-      <ul id="notes-list" class="notes-list"></ul>
-    </div>
-
+    <div class="big-face" id="full-face">🙂</div>
+    <p class="teaser-pct"><span id="overall-pct">—</span><span class="pct-sign">%</span> golden ratio match</p>
+    <p class="teaser-note" id="teaser-note"></p>
+    <div id="detailed-report"></div>
+    <h2>What your water is doing to the cup</h2>
+    <ul id="notes-list" class="notes-list"></ul>
   </section>
 
   <section class="panel glossary">
@@ -149,13 +127,16 @@
   </section>
 
   <section class="panel sources">
-    <h2>Where these ranges come from</h2>
+    <h2>Where these numbers come from</h2>
     <p>
-      Tea targets follow published brewing-water research on pH, TDS and catechin
-      extraction. Coffee targets follow the Specialty Coffee Association's Golden
-      Cup water standard. Fluoride guidance follows WHO/KEBS drinking-water limits.
-      Full citations are in the project README. This tool estimates likely taste
-      impact — it is not a certified water-safety test.
+      Tea and coffee brewing targets follow published brewing-water research and the
+      Specialty Coffee Association's Golden Cup standard. Fluoride guidance follows
+      WHO/KEBS drinking-water limits. The location-based starting estimate uses your
+      country's general, publicly documented water-hardness classification (WHO
+      hardness bands, USGS and regional water-utility data) — it is a rough regional
+      pattern, not a live reading of your actual tap. Full source list is in the
+      project README. This tool estimates likely taste impact — it is not a
+      certified water-safety test.
     </p>
   </section>
 
@@ -173,7 +154,6 @@
     This tool needs JavaScript turned on to work — please enable it in your browser.
   </p>
 </noscript>
-<script src="./config.js"></script>
 <script src="./app.js"></script>
 </body>
 </html>

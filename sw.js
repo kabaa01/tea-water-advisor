@@ -1,5 +1,5 @@
-const CACHE = "twa-shell-v4";
-const SHELL = ["./", "./index.html", "./styles.css", "./config.js", "./app.js", "./manifest.json"];
+const CACHE = "twa-shell-v5";
+const SHELL = ["./", "./index.html", "./styles.css", "./app.js", "./manifest.json"];
 
 self.addEventListener("install", (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)));

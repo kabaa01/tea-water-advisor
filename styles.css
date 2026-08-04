@@ -226,52 +226,19 @@ input[type="range"]::-moz-range-thumb {
 .glossary dt { font-family: var(--mono); font-weight: 600; color: var(--verdigris); margin-top: 12px; }
 .glossary dd { margin: 2px 0 0; color: var(--text-dim); font-size: 0.92rem; }
 
-/* ---- Payment status + confirmation ------------------------------------ */
-.confirmation-banner {
-  background: #F1F6F3;
-  border: 1px solid var(--verdigris-dim);
-  border-radius: 8px;
-  padding: 16px 18px;
-  margin: 0 0 20px;
-  text-align: left;
-}
-.confirmation-title { font-weight: 600; color: var(--verdigris); margin: 0 0 6px; }
-/* ---- Simple PayPal.me payment box -------------------------------------- */
-.pay-box { text-align: center; margin-top: 8px; }
-.pay-price { font-family: var(--serif); font-size: 1.3rem; font-weight: 600; color: var(--verdigris); margin: 0 0 14px; }
-.pay-link { display: block; text-decoration: none; margin-bottom: 12px; }
-.pay-link[aria-disabled="true"] { opacity: 0.5; pointer-events: none; }
+/* ---- Location-based estimate ------------------------------------------- */
+.location-box { margin-bottom: 24px; text-align: center; }
 .btn-secondary {
   display: block; width: 100%;
   background: transparent; color: var(--verdigris);
   border: 2px solid var(--verdigris-dim);
   font-weight: 600; border-radius: 6px; cursor: pointer;
+  font-family: var(--sans); font-size: 0.98rem; padding: 13px 22px;
 }
 .btn-secondary:hover { background: #F1F6F3; }
-.btn-secondary:disabled { opacity: 0.5; cursor: not-allowed; }
+.location-status { min-height: 1.2em; font-size: 0.92rem; font-weight: 600; color: var(--verdigris); margin-top: 8px; }
 
-/* ---- Payment confirmation step ----------------------------------------- */
-.confirm-box { margin: 16px 0; text-align: left; }
-.confirm-label { display: flex; align-items: flex-start; gap: 8px; font-weight: 600; cursor: pointer; }
-.confirm-label input[type="checkbox"] { margin-top: 3px; width: 18px; height: 18px; }
-.confirm-label input:disabled { cursor: not-allowed; }
-.verify-note { margin-top: 14px; }
-
-/* ---- Verify-by-email box (brief, inside the unlocked report) ---------- */
-.verify-box {
-  background: #F1F6F3;
-  border: 1px solid var(--verdigris-dim);
-  border-radius: 8px;
-  padding: 16px 18px;
-  margin: 0 0 24px;
-  text-align: left;
-}
-.verify-title { font-weight: 600; color: var(--verdigris); margin: 0 0 8px; }
-.verify-steps { margin: 0; padding-left: 20px; font-size: 0.92rem; }
-.verify-steps li { margin-bottom: 4px; }
-.verify-steps a { color: var(--liquor); }
-
-/* ---- Detailed report (thorough, shown only after unlock) -------------- */
+/* ---- Detailed report (thorough, shown after checking) ------------------ */
 .detail-summary { font-size: 1.02rem; margin: 0 0 22px; }
 .detail-row { border-top: 1px solid var(--line); padding: 14px 0; }
 .detail-row-head { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 6px; margin-bottom: 6px; }

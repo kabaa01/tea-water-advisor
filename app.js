@@ -26,6 +26,53 @@ const BREW_GUIDANCE = {
 };
 const FLUORIDE_SAFE_LIMIT_MGL = 1.5;
 
+// ---------------------------------------------------------------------------
+// Location-based starting estimate. There is no live global API that reports
+// real per-GPS water chemistry, so this uses country-level water-hardness
+// CLASSIFICATION drawn from public sources (WHO hardness bands; USGS Water
+// Science School; regional water-utility hardness surveys — full list in
+// README). It sets a *starting point* for the sliders, not a measurement.
+const HARDNESS_BANDS = {
+  soft:     { hardness: 40,  tds: 70,  ph: 7.0 },
+  moderate: { hardness: 90,  tds: 140, ph: 7.2 },
+  hard:     { hardness: 150, tds: 230, ph: 7.4 },
+  veryHard: { hardness: 220, tds: 330, ph: 7.6 },
+};
+
+const REGION_ESTIMATES = {
+  KE: { name: "Kenya", band: "hard", fluorideCaution: true },
+  US: { name: "the United States", band: "hard" },
+  GB: { name: "the United Kingdom", band: "hard", note: "Hardness varies sharply by region — South East England is very hard, Scotland is often soft." },
+  DE: { name: "Germany", band: "hard" },
+  FR: { name: "France", band: "moderate" },
+  IT: { name: "Italy", band: "hard" },
+  ES: { name: "Spain", band: "moderate" },
+  IN: { name: "India", band: "hard" },
+  JP: { name: "Japan", band: "soft" },
+  CA: { name: "Canada", band: "moderate", note: "Hardness varies widely by province." },
+  CN: { name: "China", band: "moderate" },
+  NG: { name: "Nigeria", band: "moderate" },
+  ZA: { name: "South Africa", band: "moderate" },
+  AU: { name: "Australia", band: "moderate" },
+  BR: { name: "Brazil", band: "moderate" },
+};
+
+// Pure function — no DOM, no network — so it's directly unit-testable.
+function estimateForCountryCode(code) {
+  const entry = REGION_ESTIMATES[(code || "").toUpperCase()];
+  const matched = !!entry;
+  const band = entry ? entry.band : "moderate";
+  const values = HARDNESS_BANDS[band];
+  return {
+    matched,
+    name: matched ? entry.name : null,
+    band,
+    note: matched ? entry.note || null : null,
+    fluorideCaution: matched ? !!entry.fluorideCaution : false,
+    ...values,
+  };
+}
+
 function scoreParam(value, range) {
   if (value == null || Number.isNaN(value)) return null;
   const { lo, target, hi } = range;
@@ -87,7 +134,7 @@ function paramRow(labelText, value, unit, range, explain) {
     </div>`;
 }
 
-// Builds the long-form report shown only after payment: a summary, a
+// Builds the long-form report: a summary, a
 // deep-dive per water parameter (not just a one-line note), and general
 // brewing guidance for the chosen beverage.
 function buildDetailedReport(advice, input) {
@@ -233,65 +280,15 @@ document.getElementById("check-btn").addEventListener("click", () => {
   };
   lastInput = input;
   lastAdvice = buildAdvice(input);
-
-  const result = document.getElementById("result");
-  result.hidden = false;
-  document.getElementById("result-unlocked").hidden = true;
-  document.getElementById("result-locked").hidden = false;
-  document.getElementById("teaser-face").textContent = faceFor(lastAdvice.overall);
-  document.getElementById("teaser-pct").textContent = lastAdvice.overall ?? "\u2014";
-  document.getElementById("teaser-note").textContent = lastAdvice.notes[0] || "";
-  document.getElementById("paid-btn").disabled = true;
-  result.scrollIntoView({ behavior: "smooth", block: "start" });
-  setUpPayment();
-});
-
-// ---- Payment: a plain PayPal.me link, no backend involved ---------------
-// There is no server here to verify payment automatically. Instead, the
-// unlocked report itself asks the buyer to email proof of payment to
-// belltowerkenya@gmail.com \u2014 a real human check, not an automated one.
-function setUpPayment() {
-  const link = window.TWA_CONFIG?.payPalLink;
-  const priceLabel = window.TWA_CONFIG?.priceLabel || "";
-  const payLink = document.getElementById("pay-link");
-  const paidBtn = document.getElementById("paid-btn");
-  const priceEl = document.getElementById("price-label");
-
-  const notConfigured = !link || link.includes("YOUR-PAYPAL");
-  priceEl.textContent = notConfigured
-    ? "Payments aren't set up on this site yet."
-    : `Unlock the full report \u2014 ${priceLabel}`;
-
-  if (notConfigured) {
-    payLink.setAttribute("aria-disabled", "true");
-    payLink.href = "#";
-    return;
-  }
-
-  payLink.href = link;
-
-  payLink.addEventListener("click", () => {
-    paidBtn.disabled = false;
-  }, { once: true });
-}
-
-document.getElementById("paid-btn").addEventListener("click", () => {
   renderFullReport(lastAdvice, lastInput);
 });
 
 function renderFullReport(advice, input) {
   const result = document.getElementById("result");
   result.hidden = false;
-  document.getElementById("result-locked").hidden = true;
-  document.getElementById("result-unlocked").hidden = false;
   document.getElementById("full-face").textContent = faceFor(advice.overall);
   document.getElementById("overall-pct").textContent = advice.overall ?? "\u2014";
-
-  const email = window.TWA_CONFIG?.verificationEmail || "belltowerkenya@gmail.com";
-  const emailLink = document.getElementById("verify-email-link");
-  emailLink.textContent = email;
-  emailLink.href = `mailto:${email}?subject=${encodeURIComponent("Payment verification - " + advice.profile.label + " report")}`;
-
+  document.getElementById("teaser-note").textContent = advice.notes[0] || "";
   document.getElementById("detailed-report").innerHTML = buildDetailedReport(advice, input);
 
   const list = document.getElementById("notes-list");
@@ -303,6 +300,49 @@ function renderFullReport(advice, input) {
   });
   result.scrollIntoView({ behavior: "smooth", block: "start" });
 }
+
+// ---- Location-based starting estimate ------------------------------------
+// User-triggered only (never runs automatically). One reverse-geocode call
+// to OpenStreetMap's public Nominatim service, used only to resolve a
+// country from the coordinates \u2014 nothing is stored, and no other data
+// leaves the browser. See README for Nominatim's usage policy.
+document.getElementById("use-location-btn").addEventListener("click", async () => {
+  const statusEl = document.getElementById("location-status");
+  if (!("geolocation" in navigator)) {
+    statusEl.textContent = "Your browser doesn't support location lookup \u2014 enter your numbers manually below.";
+    return;
+  }
+  statusEl.textContent = "Getting your location\u2026";
+  try {
+    const pos = await new Promise((resolve, reject) =>
+      navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 10000 })
+    );
+    statusEl.textContent = "Looking up regional water data\u2026";
+    const { latitude, longitude } = pos.coords;
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=3`
+    );
+    const data = await res.json();
+    const code = data?.address?.country_code;
+    const est = estimateForCountryCode(code);
+
+    phEl.value = est.ph;
+    tdsEl.value = est.tds;
+    hardnessEl.value = est.hardness;
+    updateReadouts();
+
+    const place = est.matched ? est.name : "your region";
+    let msg = est.matched
+      ? `\u2705 Estimate set from general water-hardness data for ${place}.`
+      : `\u2139\ufe0f No specific data for your country \u2014 using a global typical average as a starting point.`;
+    if (est.note) msg += ` ${est.note}`;
+    if (est.fluorideCaution) msg += " Elevated fluoride has been documented in parts of Kenya, particularly the Rift Valley \u2014 get a fluoride-specific test if you're unsure.";
+    msg += " This is a general regional pattern, not a reading of your actual tap \u2014 adjust the dials if you have real numbers.";
+    statusEl.textContent = msg;
+  } catch (err) {
+    statusEl.textContent = "Could not get your location \u2014 enter your water reading manually below instead.";
+  }
+});
 
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js"));

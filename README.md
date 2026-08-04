@@ -1,20 +1,22 @@
-# Steep & Standard — Tea & Coffee Brewing Water Advisor
+# Steep & Standard — Water & Brew Advisor
 
-A Progressive Web App (PWA — a website that can be installed like an app
-and works offline) that takes a water test result (pH, TDS, hardness,
-fluoride) and gives a brew-specific reading of how that water will affect
-taste, with a paid unlock for the full breakdown via a plain PayPal
-payment link. No servers, no accounts beyond GitHub and PayPal, nothing
-to configure with a command line.
+A free Progressive Web App (PWA — a website that can be installed like an
+app and works offline) that estimates how your water chemistry affects
+the taste of tea or coffee, and gives a brew-specific golden ratio to
+aim for. No payment, no account, no backend.
 
 ## What this is / is not
 
 - **Is:** a scoring tool built from published brewing-water research (see
-  Sources below), giving an *estimate* of likely taste impact.
+  Sources below), giving an *estimate* of likely taste impact, with an
+  optional location-based starting point for people who don't have a
+  water test handy.
 - **Is not:** a certified water-safety test, a medical/health tool, or a
-  claim that works for "any food" — it's scoped to tea and coffee, where the
-  water-chemistry-to-taste link is actually documented. The fluoride check is
-  a safety flag pointing to a proper lab test, not a diagnosis.
+  claim that works for "any food" — it's scoped to tea and coffee, where
+  the water-chemistry-to-taste link is actually documented. The fluoride
+  check is a safety flag pointing to a proper lab test, not a diagnosis.
+  The location estimate is a **regional pattern**, not a live reading of
+  your actual tap — see below.
 
 ## Glossary
 
@@ -28,130 +30,145 @@ to configure with a command line.
 | WHO | World Health Organization |
 | KEBS | Kenya Bureau of Standards |
 | PWA | Progressive Web App |
+| GPS | Global Positioning System — used here only to identify your country |
 | CI | Continuous Integration — automatically running tests on every code change |
 
-## How payment works
+## The location-based estimate — how it actually works, and its limits
 
-There is no backend. The "Pay with PayPal" button is a plain link to your
-**PayPal.me** page with the price built into the URL. When someone clicks
-it, PayPal opens in a new tab and they pay you directly — funds land in
-your PayPal account (`kabaa01@yahoo.com`) immediately.
+**There is no live public API that reports real water chemistry for an
+arbitrary GPS coordinate anywhere in the world.** No app can honestly
+offer that today. What this feature does instead, and says plainly in
+the UI:
 
-**Verification is a real human check, not an automated one.** After
-paying, the buyer clicks "Show my report" to reveal it immediately (no
-gate beyond having clicked the pay link). Inside the unlocked report is a
-short, plainly-worded box asking them to email proof of payment — a
-screenshot of the PayPal receipt or the Transaction ID — to
-**belltowerkenya@gmail.com**, along with their name and the date. That
-email is what you personally check, rather than any code checking PayPal
-on your behalf. This intentionally trades automatic verification for
-zero backend complexity and puts you in control of confirming payments
-yourself.
+1. When you tap "Estimate from my location," your browser asks your
+   permission (nothing happens without an explicit click — this is never
+   requested automatically on page load).
+2. Your coordinates are sent once to **OpenStreetMap's Nominatim service**
+   (a free, public reverse-geocoding API) purely to resolve which
+   **country** you're in. Nothing is stored by this app.
+3. Your country is matched against a small table built from **published,
+   general water-hardness classifications** — not live data. Countries
+   not in the table fall back to a global typical-average estimate,
+   clearly labeled as such.
+4. That match pre-fills the pH/TDS/hardness dials as a **starting point**.
+   You can and should override it with real numbers from a water-test
+   strip or lab report if you have them.
 
-If you ever want real *automatic* verification again (PayPal itself
-confirming the charge before the report unlocks), that requires a small
-server-side piece — ask and I'll scope the minimal version.
+### Sources for the regional water-hardness classifications
 
-### One-time setup (5 minutes, no technical steps)
+- World Health Organization hardness bands (soft / moderately hard / hard
+  / very hard, in mg/L as CaCO₃).
+- U.S. Geological Survey, *Hardness of Water* (Water Science School) and
+  USGS national hardness mapping.
+- Regional water-utility hardness surveys summarized by HomeWater101 and
+  Crystal Quest (United States); wassertipps.de (Europe); a PMC-indexed
+  study on tap-water hardness patterns in Japan.
+- For Kenya specifically: Kenya Water Institute (KEWI) and University of
+  Nairobi studies on Nairobi-area borehole and tap water, and published
+  summaries of KEBS/WHO-referenced water-quality patterns, which document
+  widespread hard groundwater and elevated fluoride risk in parts of the
+  country, particularly the Rift Valley.
 
-1. Log into PayPal as `kabaa01@yahoo.com`.
-2. Go to **paypal.com/paypalme** and claim a link name (e.g. `paypal.me/kabaa01`).
-3. Open `config.js` in this project and set:
-   ```js
-   payPalLink: "https://paypal.me/kabaa01/5USD",
-   priceLabel: "$5.00",
-   verificationEmail: "belltowerkenya@gmail.com",
-   ```
-   (Replace `kabaa01` with whatever name you actually claimed, and `5USD`
-   with your price — the number is the amount, `USD` fixes the currency
-   so it doesn't default to something else.)
-4. Save, then push to GitHub (see Deploy steps below).
-
-That's the entire payment setup. No API keys, no secrets, no CLI.
+This is intentionally coarse — a starting point for people with no test
+kit, not a substitute for one.
 
 ## Deploy steps
 
 ```bash
 git add .
-git commit -m "Add manual payment verification and detailed report"
+git commit -m "Remove payment, add location-based water estimate"
 git push
 ```
 
 GitHub Pages picks it up automatically within a minute or two. There is
-nothing else to run, configure, or deploy. `.github/workflows/test.yml`
+nothing else to run, configure, or deploy — there's no config file left
+at all, since there's nothing left to configure. `.github/workflows/test.yml`
 runs the automated tests on every push automatically; it needs no secrets.
 
-## Changing the price later
+## International UI/UX practices applied here
 
-Open `config.js`, change both the amount in `payPalLink` and `priceLabel`
-to match, save, commit, push. That's the whole process.
+- **Consent-first location access** — the browser's permission prompt
+  only ever appears after an explicit tap, never on load, and the button
+  copy states exactly what happens with the data before asking.
+- **Graceful degradation** — if location is denied, unsupported, or the
+  lookup fails, the page falls back to manual entry with a plain message,
+  never a dead end.
+- **No dark patterns** — the estimate is clearly labeled as an estimate
+  everywhere it appears, not presented as a measurement.
+- **Progressive disclosure** — advanced fields (alkalinity, fluoride,
+  chlorine) stay collapsed until asked for.
+- **Free-text-free inputs** — every value is a slider or number field, so
+  there's no possibility of malformed or unsafe text input.
 
 ## The detailed report
 
-Once unlocked, the report goes well beyond the free teaser: a plain-
-English summary paragraph, a full breakdown of every tested parameter
-(your reading, the ideal range, and a real explanation of what it's
-doing to the cup — not just a one-line note), a fluoride/chlorine safety
-callout when relevant, and general brewing guidance (water temperature
-and steep time) for the chosen beverage, sourced from widely published
-brewing practice and the SCA Golden Cup standard for coffee.
+The report (shown immediately after checking — nothing is gated anymore)
+includes: a plain-English summary paragraph, a full breakdown of every
+tested parameter (your reading, the ideal range, and a real explanation
+of what it's doing to the cup), a fluoride/chlorine safety callout when
+relevant, and general brewing guidance (water temperature and steep time)
+for the chosen beverage, sourced from widely published brewing practice
+and the SCA Golden Cup standard for coffee.
 
 ## Sources for the scoring thresholds
 
-- Tea pH/TDS/hardness targets and their taste effects: brewing-water studies
-  on catechin extraction and infusion color (e.g. *ScienceDirect*, "The types
-  of brewing water affect tea infusion flavor by changing the tea mineral
-  dissolution," 2023; "Effects of different types of water on the sensory
-  and physicochemical properties of cold-brewed green tea," 2026).
+- Tea pH/TDS/hardness targets and their taste effects: brewing-water
+  studies on catechin extraction and infusion color (e.g. *ScienceDirect*,
+  "The types of brewing water affect tea infusion flavor by changing the
+  tea mineral dissolution," 2023; "Effects of different types of water on
+  the sensory and physicochemical properties of cold-brewed green tea,"
+  2026).
 - Coffee targets: Specialty Coffee Association (SCA) Golden Cup water
   standard (TDS 150 mg/L target, 75–250 range; calcium hardness 68 mg/L
   target, 17–85 range; alkalinity ~40 mg/L; pH 7.0, 6.5–7.5 range).
 - Fluoride guideline: World Health Organization (WHO) drinking-water
   guideline / Kenya Bureau of Standards (KEBS), 1.5 mg/L.
 
-These are general reference ranges, not a substitute for an accredited lab
-report — the in-app copy says this, and so does this file.
+These are general reference ranges, not a substitute for an accredited
+lab report — the in-app copy says this, and so does this file.
 
 ## QA performed
 
-Automated (re-run anytime with `node --test tests/*.mjs`, and automatically
-on every push via `.github/workflows/test.yml`):
+Automated (re-run anytime with `node --test tests/*.mjs`, and
+automatically on every push via `.github/workflows/test.yml`):
 
 - 10 scoring-engine tests (ideal/bad water, boundary handling, missing
-  fields, fluoride/chlorine flags, invalid beverage, all profiles reachable,
-  percentages always 0–100).
-- 1 path-regression test (fails the build if any asset reference breaks on
-  GitHub Pages again).
-- 9 tests covering the manual-verification payment setup: no automated
-  backend/API code remains anywhere, `config.js` exposes only non-secret
-  values including the verification email, the verify-by-email step lives
-  inside the unlocked report (not gating access to it) and stays brief
-  (2–5 steps), the pay gate is two simple steps with no false
-  auto-verification claim, and the detailed report actually covers every
-  tested parameter with a real explanation plus brewing guidance for all
-  six beverages.
+  fields, fluoride/chlorine flags, invalid beverage, all profiles
+  reachable, percentages always 0–100).
+- 1 path-regression test (fails the build if any asset reference breaks
+  on GitHub Pages again).
+- 10 location-estimate tests: known country codes resolve to real numbers,
+  Kenya specifically carries its fluoride caution, unknown countries fall
+  back to a global default instead of failing, country-code matching is
+  case-insensitive and doesn't throw on missing input, every region entry
+  in the table resolves to a plausible pH, location lookup only ever
+  fires from the button's click handler (never on page load), no PayPal
+  or payment code remains anywhere, `config.js` no longer exists, and the
+  old locked/unlocked report gate is fully gone.
+
+A functional smoke test also ran the full pipeline end-to-end in Node —
+resolving Kenya's estimate and feeding it through the actual scoring
+engine for black tea — and confirmed the result is not just "a number"
+but a realistic, defensible one: Kenya's documented hard water scores
+as a poor match against tea's tighter mineral tolerances, consistent
+with real-world reports of scale buildup and dulled flavor there.
 
 Static checks re-run on every change: JSON validity, JS syntax, GitHub
 Actions YAML validity, every DOM id referenced in `app.js` matching one
-defined in `index.html`, and HTML tag balance including the new report
-markup (`<ol>`/`<li>`/extra `<a>` for the mailto link). A functional
-smoke test also ran `buildDetailedReport()` directly in Node against
-several real inputs (ideal coffee water, and bad green-tea water with a
-fluoride flag and chlorine both present) to confirm it produces real
-content in every branch, not just that the function exists. All checks
-passed on three consecutive full runs of this version.
+defined in `index.html`, and HTML tag balance. Repo file listing was
+checked directly to confirm no stray payment files or config remain.
+All checks passed on three consecutive full runs of this version.
 
 **Not automated — still needs your pass**, because these require a real
-browser/device or an actual PayPal payment:
-- Clicking "Pay with PayPal" and confirming it opens your real PayPal.me
-  page with the right amount pre-filled.
-- Confirming the `mailto:` verification link opens your email client with
-  the right address and subject pre-filled.
+browser/device:
+- Actually granting/denying the location permission prompt on a phone.
+- Confirming the Nominatim lookup returns a sensible country for a real
+  GPS fix (not just the logic that consumes its result).
 - Lighthouse/PWA audit (installability, offline behavior) in Chrome DevTools.
 - Screen-reader pass and keyboard-only navigation.
 - Mobile Safari/Chrome visual check.
 
-I ran every check I could actually execute rather than claim an open-ended
-"repeat until zero issues" loop in the abstract — that phrase only means
-something against a live environment. Once you deploy, tell me what you
-see and I'll fix anything that's off.
+I ran every check I could actually execute rather than claim an
+open-ended "repeat until zero issues" loop in the abstract. Once you
+deploy, tell me what you see and I'll fix it the same way: reproduce,
+patch, re-test.
